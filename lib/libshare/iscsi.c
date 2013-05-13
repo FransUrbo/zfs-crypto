@@ -58,6 +58,8 @@
 #include <strings.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <libzfs.h>
