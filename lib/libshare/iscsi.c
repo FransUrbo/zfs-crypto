@@ -93,7 +93,7 @@ typedef struct iscsi_dirs_s {
  * Free a list of iscsi_dirs_t's
  */
 static void
-iscsi_dirs_free(iscsi_dirs_t *entries) {
+iscsi_dirs_free_list(iscsi_dirs_t *entries) {
     iscsi_dirs_t *next;
 
     while (entries) {
@@ -103,18 +103,9 @@ iscsi_dirs_free(iscsi_dirs_t *entries) {
     }
 }
 
-/* TODO:
- *
- * Why is the last argument called index?
- *
- * Shouldn't it be called size or something else?
- *
- * Index refers to a place maybe in the path or needle, not matching the first
- * characters in the d_name as it does.
- *
- */
 static iscsi_dirs_t *
-iscsi_look_for_stuff(char *path, const char *needle, boolean_t check_dir, int index)
+iscsi_look_for_stuff(char *path, const char *needle, boolean_t check_dir,
+		     int check_len)
 {
 	char path2[PATH_MAX], *path3;
 	DIR *dir;
@@ -123,11 +114,8 @@ iscsi_look_for_stuff(char *path, const char *needle, boolean_t check_dir, int in
 	iscsi_dirs_t *entries = NULL, *new_entries = NULL;
 	int ret;
 
-	/* Check that path is set */
-	/* TODO: Return NULL or use assert() for fatal error */
-	if (!path) {
-	    return NULL;
-	}
+	/* Make sure that path is set */
+	assert(path != NULL);
 
 	if ((dir = opendir(path))) {
 		while ((directory = readdir(dir))) {
@@ -137,10 +125,9 @@ iscsi_look_for_stuff(char *path, const char *needle, boolean_t check_dir, int in
 			path3 = NULL;
 			ret = snprintf(path2, sizeof (path2),
 				 "%s/%s", path, directory->d_name);
-			if (ret < 0 || ret >= sizeof(path2)) {
-			    /* Error or not enough space in string */
-			    continue; /* TODO: Decide to continue or break */
-			}
+			if (ret < 0 || ret >= sizeof(path2))
+				/* Error or not enough space in string */
+				continue; /* TODO: Decide to continue or break */
 
 			if (stat(path2, &eStat) == -1)
 				goto look_out;
@@ -149,12 +136,13 @@ iscsi_look_for_stuff(char *path, const char *needle, boolean_t check_dir, int in
 				continue;
 
 			if (needle != NULL) {
-				if (index) {
-					if (strncmp(directory->d_name, needle, index) == 0)
+				if (check_len) {
+					if (strncmp(directory->d_name,
+						    needle, check_len) == 0)
 						path3 = path2;
 				} else {
 					if (strcmp(directory->d_name, needle) == 0)
-					    path3 = path2;
+						path3 = path2;
 				}
 			} else {
 				if (strcmp(directory->d_name, "mgmt") == 0) 
@@ -163,12 +151,12 @@ iscsi_look_for_stuff(char *path, const char *needle, boolean_t check_dir, int in
 				path3 = path2;
 			}
 
-			entries = (iscsi_dirs_t *)malloc(sizeof (iscsi_dirs_t));
+			entries = (iscsi_dirs_t *) malloc(sizeof (iscsi_dirs_t));
 			if (entries == NULL)
 				goto look_out;
 
 			if (path3)
-			    strncpy(entries->path, path3, sizeof(entries->path));
+				strncpy(entries->path, path3, sizeof(entries->path));
 			strncpy(entries->entry, directory->d_name, sizeof(entries->entry));
 			entries->stats = eStat;
 
@@ -190,11 +178,10 @@ iscsi_read_sysfs_value(char *path, char **value)
 	char buffer[255];
 	FILE *scst_sysfs_file_fp = NULL;
 
-    /* Check that path and value is set */
-    /* TODO: Return rc or use assert() for fatal error */
-	if (!path || !value) {
-	    return rc;
-	}
+	/* Make sure that path and value is set */
+	assert(path != NULL);
+	if (!value)
+		return rc;
 
 	/* TODO: If *value is not NULL we might be dropping allocated memory, assert? */
 	*value = NULL;
@@ -206,17 +193,15 @@ iscsi_read_sysfs_value(char *path, char **value)
 	scst_sysfs_file_fp = fopen(path, "r");
 	if (scst_sysfs_file_fp != NULL) {
 		if (fgets(buffer, sizeof (buffer), scst_sysfs_file_fp) != NULL) {
-
-	        /* Trim trailing new-line character(s). */
+			/* Trim trailing new-line character(s). */
 			buffer_len = strlen(buffer);
 			while (buffer_len > 0) {
 			    buffer_len--;
-			    if (buffer[buffer_len] == '\r' || buffer[buffer_len] == '\n') {
-	                buffer[buffer_len] = 0;
-			    }
-			    else {
-			        break;
-			    }
+			    if (buffer[buffer_len] == '\r' ||
+				buffer[buffer_len] == '\n') {
+			    	buffer[buffer_len] = 0;
+			    } else
+			    	break;
 			}
 
 			*value = strdup(buffer);
@@ -225,10 +210,9 @@ iscsi_read_sysfs_value(char *path, char **value)
 			fprintf(stderr, ", value=%s", *value);
 #endif
 
-            /* Check that strdup() was successful */
-			if (*value) {
-			    rc = SA_OK;
-			}
+			/* Check that strdup() was successful */
+			if (*value)
+				rc = SA_OK;
 		}
 
 		fclose(scst_sysfs_file_fp);
@@ -248,21 +232,18 @@ iscsi_write_sysfs_value(char *path, char *value)
 	FILE *scst_sysfs_file_fp = NULL;
 	int ret;
 
-    /* Check that path and value is set */
-    /* TODO: Return rc or use assert() for fatal error */
-    if (!path || !value) {
-        return rc;
-    }
+	/* Make sure that path and value is set */
+	assert(path != NULL);
+	assert(value != NULL);
 
 	ret = snprintf(full_path, sizeof(full_path), "%s/%s", SYSFS_SCST, path);
-    if (ret < 0 || ret >= sizeof(full_path)) {
-        return rc;
-    }
+	if (ret < 0 || ret >= sizeof(full_path))
+		return rc;
 
 #ifdef DEBUG
 	fprintf(stderr, "iscsi_write_sysfs_value: %s\n                         => %s\n",
 		full_path, value);
-	rc = SA_OK; /* TODO: Always ok when debugging? */
+	rc = SA_OK; /* We're debugging, so exit here and fake success */
 #endif
 
 	scst_sysfs_file_fp = fopen(full_path, "w");
@@ -291,7 +272,7 @@ iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
 	char tsbuf[8]; /* YYYY-MM */
 	char domain[256], revname[256], name[256],
 		tmpdom[256], *p, tmp[20][256], *pos,
-		buffer[512], file_iqn[255];
+		buffer[256], file_iqn[255];
 	time_t now;
 	struct tm *now_local;
 	int i, ret;
@@ -300,15 +281,13 @@ iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
 	if (path == NULL)
 		return SA_SYSTEM_ERR;
 
-    /* Check that iqn and iqn_len is set */
-    /* TODO: Return SA_SYSTEM_ERR or use assert() for fatal error */
-    if (!iqn || iqn_len < 1) {
-        return SA_SYSTEM_ERR;
-    }
+	/* Make sure that iqn and iqn_len is set */
+	assert(iqn != NULL);
+	assert(iqn_len < 1);
 
-    /* Make sure file_iqn buffer contain zero byte or else strlen() later
-     * can fail.
-     */
+	/* Make sure file_iqn buffer contain zero byte or else strlen() later
+	 * can fail.
+	 */
 	file_iqn[0] = 0;
 
 	iscsi_target_name_fp = fopen(TARGET_NAME_FILE, "r");
@@ -319,14 +298,14 @@ iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
 		now = time(NULL);
 		now_local = localtime(&now);
 		if (now_local == NULL)
-			return -1; /* TODO: Shouldn't this be SA_SYSTEM_ERR or other? */
+			return SA_SYSTEM_ERR;
 
 		/* Parse EPOCH and get YYY-MM */
 		if (strftime(tsbuf, sizeof (tsbuf), "%Y-%m", now_local) == 0)
-			return -1; /* TODO: Shouldn't this be SA_SYSTEM_ERR or other? */
+			return SA_SYSTEM_ERR;
 
-		/* Make sure domain buffer contain zero byte or else strlen() later
-		 * can fail.
+		/* Make sure domain buffer contain zero byte or else strlen()
+		 * later can fail.
 		 */
 		domain[0] = 0;
 
@@ -343,9 +322,6 @@ iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
 			}
 
 			if (fgets(buffer, sizeof (buffer), domainname_fp) != NULL) {
-			    /* TODO: Shouldn't we check if the first line is larger then domain buffer?
-			     * It reads maximum 512 char line but domain is only 256
-			     */
 				strncpy(domain, buffer, sizeof (domain)-1);
 				domain[strlen(domain)-1] = '\0';
 			} else
@@ -368,32 +344,33 @@ iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
 		i = 0;
 		p = strtok(tmpdom, ".");
 		while (p != NULL) {
-            if (i == 20) {
-                /* Reached end of tmp[] */
-                /* TODO: print error? */
-                return SA_SYSTEM_ERR;
-            }
+			if (i == 20) {
+				/* Reached end of tmp[] */
+				/* XXX: print error? */
+				return SA_SYSTEM_ERR;
+			}
 
-            strncpy(tmp[i], p, sizeof(tmp[i]));
+			strncpy(tmp[i], p, sizeof(tmp[i]));
 			p = strtok(NULL, ".");
-			
+
 			i++;
 		}
 		i--;
 		memset(&revname[0], 0, sizeof (revname));
 		for (; i >= 0; i--) {
 			if (strlen(revname)) {
-				ret = snprintf(tmpdom, sizeof(tmpdom), "%s.%s", revname, tmp[i]);
-			    if (ret < 0 || ret >= sizeof(tmpdom)) {
-	                /* TODO: print error? */
-	                return SA_SYSTEM_ERR;
-			    }
+				ret = snprintf(tmpdom, sizeof(tmpdom),
+					       "%s.%s", revname, tmp[i]);
+				if (ret < 0 || ret >= sizeof(tmpdom)) {
+					/* XXX: print error? */
+					return SA_SYSTEM_ERR;
+				}
 
 				ret = snprintf(revname, sizeof(revname), "%s", tmpdom);
-			    if (ret < 0 || ret >= sizeof(revname)) {
-	                /* TODO: print error? */
-	                return SA_SYSTEM_ERR;
-			    }
+				if (ret < 0 || ret >= sizeof(revname)) {
+					/* XXX: print error? */
+					return SA_SYSTEM_ERR;
+				}
 			} else {
 				strncpy(revname, tmp[i], sizeof(revname));
 				revname [sizeof(revname)-1] = '\0';
@@ -427,36 +404,33 @@ iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
 	/* Put the whole thing togheter => "iqn.2012-11.com.bayour:share.VirtualMachines.Astrix" */
 	if (file_iqn[0]) {
 		ret = snprintf(iqn, iqn_len, "%s:%s", file_iqn, name);
-        if (ret < 0 || ret >= iqn_len) {
-            /* TODO: print error? */
-            return SA_SYSTEM_ERR;
-        }
-	}
-	else {
-	    ret = snprintf(iqn, iqn_len, "iqn.%s.%s:%s", tsbuf, revname, name);
-        if (ret < 0 || ret >= iqn_len) {
-            /* TODO: print error? */
-            return SA_SYSTEM_ERR;
-        }
+		if (ret < 0 || ret >= iqn_len) {
+			/* XXX: print error? */
+			return SA_SYSTEM_ERR;
+		}
+	} else {
+		ret = snprintf(iqn, iqn_len, "iqn.%s.%s:%s", tsbuf, revname,
+			       name);
+		if (ret < 0 || ret >= iqn_len) {
+			/* XXX: print error? */
+			return SA_SYSTEM_ERR;
+		}
 	}
 
 	return SA_OK;
 }
 
-/* TODO:
- * name not used?
+/* Preferably we should use the dataset name here, but there's a limit
+ * of 16 characters...
  */
 static void
-iscsi_generate_device_name(char *name, char **device)
+iscsi_generate_scst_device_name(char **device)
 {
 	int i;
 	char string[17], src_chars[62] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-    /* Check that device is set */
-    /* TODO: Return or use assert() for fatal error */
-    if (!device) {
-        return;
-    }
+	/* Mske sure that device is set */
+	assert(device != NULL);
 
 	/* Seed number for rand() */
 	srand((unsigned int) time(0) + getpid());
@@ -469,9 +443,8 @@ iscsi_generate_device_name(char *name, char **device)
 	*device = strdup(string);
 }
 
-/* Reads the file and register if a tid have a sid. Save the value in iscsi_targets->state */
-/* TODO:
- * There is a rc variable but we can't return it, meaningless?
+/* Reads the file and register if a tid have a sid. Save the value in
+ * iscsi_targets->state
  */
 static iscsi_session_t *
 iscsi_retrieve_sessions_iet(void)
@@ -479,7 +452,7 @@ iscsi_retrieve_sessions_iet(void)
 	FILE *iscsi_volumes_fp = NULL;
 	char buffer[512];
 	char *line, *token, *key, *value, *colon, *dup_value;
-	int buffer_len, rc = SA_OK;
+	int buffer_len;
 	iscsi_session_t *session, *new_session = NULL;
 	enum { ISCSI_SESSION, ISCSI_SID, ISCSI_CID } type;
 
@@ -489,24 +462,21 @@ iscsi_retrieve_sessions_iet(void)
 
 	/* Open file with targets */
 	iscsi_volumes_fp = fopen(PROC_IET_SESSION, "r");
-	if (iscsi_volumes_fp == NULL) {
-		rc = SA_SYSTEM_ERR;
-		goto retrieve_sessions_iet_out;
-	}
+	if (iscsi_volumes_fp == NULL)
+		exit(SA_SYSTEM_ERR);
 
 	/* Load the file... */
 	while (fgets(buffer, sizeof (buffer), iscsi_volumes_fp) != NULL) {
-        /* Trim trailing new-line character(s). */
-        buffer_len = strlen(buffer);
-        while (buffer_len > 0) {
-            buffer_len--;
-            if (buffer[buffer_len] == '\r' || buffer[buffer_len] == '\n') {
-                buffer[buffer_len] = 0;
-            }
-            else {
-                break;
-            }
-        }
+		/* Trim trailing new-line character(s). */
+		buffer_len = strlen(buffer);
+		while (buffer_len > 0) {
+			buffer_len--;
+			if (buffer[buffer_len] == '\r' ||
+			    buffer[buffer_len] == '\n') {
+				buffer[buffer_len] = 0;
+			} else
+				break;
+		}
 
 		if (buffer[0] != '\t') {
 			/*
@@ -525,7 +495,9 @@ iscsi_retrieve_sessions_iet(void)
 			free(state);
 			free(hd);
 			free(dd);
-            name = tid = sid = cid = ip = initiator = state = hd = dd = NULL;
+
+			name = tid = sid = cid = ip = NULL;
+			initiator = state = hd = dd = NULL;
 		} else if (buffer[0] == '\t' && buffer[1] == '\t') {
 			/* Start with two tabs - CID definition */
 			line = buffer + 2;
@@ -535,8 +507,8 @@ iscsi_retrieve_sessions_iet(void)
 			line = buffer + 1;
 			type = ISCSI_SID;
 		} else {
-		    /* TODO: Unknown line, skip or fatal? */
-		    goto retrieve_sessions_iet_out;
+			/* Unknown line - skip it. */
+			continue;
 		}
 
 		/* Get each option, which is separated by space */
@@ -554,99 +526,61 @@ iscsi_retrieve_sessions_iet(void)
 
 			dup_value = strdup(value);
 
-			if (dup_value == NULL) {
-				rc = SA_NO_MEMORY;
-				goto retrieve_sessions_iet_out;
-			}
+			if (dup_value == NULL)
+				exit(SA_NO_MEMORY);
 
-			/*
-			 * When match is found check that the previous value is not set, if
-			 * it is we exit fatally.
-			 */
 			if (type == ISCSI_SESSION) {
-				if (strcmp(key, "tid") == 0) {
-				    if (tid) {
-				        goto retrieve_sessions_iet_out;
-				    }
+				if (strcmp(key, "tid") == 0)
 					tid = dup_value;
-				} else if (strcmp(key, "name") == 0) {
-                    if (name) {
-                        goto retrieve_sessions_iet_out;
-                    }
+				else if (strcmp(key, "name") == 0)
 					name = dup_value;
-				} else {
+				else
 					free(dup_value);
-				}
 			} else if (type == ISCSI_SID) {
-				if (strcmp(key, "sid") == 0) {
-                    if (sid) {
-                        goto retrieve_sessions_iet_out;
-                    }
+				if (strcmp(key, "sid") == 0)
 					sid = dup_value;
-				} else if (strcmp(key, "initiator") == 0) {
-                    if (initiator) {
-                        goto retrieve_sessions_iet_out;
-                    }
+				else if (strcmp(key, "initiator") == 0)
 					initiator = dup_value;
-				} else {
+				else
 					free(dup_value);
-				}
 			} else {
-				if (strcmp(key, "cid") == 0) {
-                    if (cid) {
-                        goto retrieve_sessions_iet_out;
-                    }
+				if (strcmp(key, "cid") == 0)
 					cid = dup_value;
-				} else if (strcmp(key, "ip") == 0) {
-                    if (ip) {
-                        goto retrieve_sessions_iet_out;
-                    }
+				else if (strcmp(key, "ip") == 0)
 					ip = dup_value;
-				} else if (strcmp(key, "state") == 0) {
-                    if (state) {
-                        goto retrieve_sessions_iet_out;
-                    }
+				else if (strcmp(key, "state") == 0)
 					state = dup_value;
-				} else if (strcmp(key, "hd") == 0) {
-                    if (hd) {
-                        goto retrieve_sessions_iet_out;
-                    }
+				else if (strcmp(key, "hd") == 0)
 					hd = dup_value;
-				} else if (strcmp(key, "dd") == 0) {
-                    if (dd) {
-                        goto retrieve_sessions_iet_out;
-                    }
+				else if (strcmp(key, "dd") == 0)
 					dd = dup_value;
-				} else {
+				else
 					free(dup_value);
-				}
 			}
 
 next_sessions:
 			token = strtok(NULL, " ");
 		}
 
-		if (tid == NULL || sid == NULL || cid == NULL || name == NULL ||
-		    initiator == NULL || ip == NULL || state == NULL || dd == NULL ||
-		    hd == NULL)
+		if (tid == NULL || sid == NULL || cid == NULL ||
+		    name == NULL || initiator == NULL || ip == NULL ||
+		    state == NULL || dd == NULL || hd == NULL)
 			continue; /* Incomplete session definition */
 
-		session = (iscsi_session_t *)malloc(sizeof (iscsi_session_t));
-		if (session == NULL) {
-			rc = SA_NO_MEMORY;
-			goto retrieve_sessions_iet_out;
-		}
+		session = (iscsi_session_t *) malloc(sizeof (iscsi_session_t));
+		if (session == NULL)
+			exit(SA_NO_MEMORY);
 
 		/* Save the values in the struct */
 		session->tid = atoi(tid);
 		session->sid = atoi(sid);
 		session->cid = atoi(cid);
 
-		strncpy(session->name, name, sizeof (session->name));
+		strncpy(session->name,      name,      sizeof (session->name));
 		strncpy(session->initiator, initiator, sizeof (session->initiator));
-		strncpy(session->ip, ip, sizeof (session->ip));
-		strncpy(session->hd, hd, sizeof (session->hd));
-		strncpy(session->dd, dd, sizeof (session->dd));
+		strncpy(session->ip,        ip,        sizeof (session->ip));
+		strncpy(session->hd,        hd,        sizeof (session->hd));
+		strncpy(session->dd,        dd,        sizeof (session->dd));
 
 		if (strcmp(state, "active") == 0)
 			session->state = 1;
@@ -665,19 +599,18 @@ next_sessions:
 		new_session = session;
 	}
 
-retrieve_sessions_iet_out:
-    free(name);
-    free(tid);
-    free(sid);
-    free(cid);
-    free(ip);
-    free(initiator);
-    free(state);
-    free(hd);
-    free(dd);
-
 	if (iscsi_volumes_fp != NULL)
 		fclose(iscsi_volumes_fp);
+
+	free(name);
+	free(tid);
+	free(sid);
+	free(cid);
+	free(ip);
+	free(initiator);
+	free(state);
+	free(hd);
+	free(dd);
 
 	return new_session;
 }
@@ -694,129 +627,118 @@ iscsi_retrieve_sessions_scst(void)
 {
 	char path[PATH_MAX], tmp_path[PATH_MAX], *buffer = NULL;
 	iscsi_dirs_t *entries1 = NULL, *entries2 = NULL, *entries3 = NULL;
-    iscsi_dirs_t *_entries1 = NULL, *_entries2 = NULL, *_entries3 = NULL;
+	iscsi_dirs_t *_entries1 = NULL, *_entries2 = NULL, *_entries3 = NULL;
 	iscsi_session_t *session, *new_session = NULL;
 	struct stat eStat;
 	int ret;
 
 	/* For storing the share info */
-	char *tid = NULL, *sid = NULL, *cid = NULL, *name = NULL, *initiator = NULL,
-		*ip = NULL, *state = NULL;
+	char *tid = NULL, *sid = NULL, *cid = NULL, *name = NULL,
+		*initiator = NULL, *ip = NULL, *state = NULL;
 
 	/* DIR: $SYSFS/targets/iscsi/$name*/
 	ret = snprintf(path, sizeof (path), "%s/targets/iscsi", SYSFS_SCST);
-    if (ret < 0 || ret >= sizeof(path)) {
-        return NULL;
-    }
+	if (ret < 0 || ret >= sizeof(path))
+		return NULL;
 
 	entries1 = iscsi_look_for_stuff(path, "iqn.", B_TRUE, 4);
 	_entries1 = entries1;
 	while (entries1 != NULL) {
 		/* DIR: $SYSFS/targets/iscsi/$name */
 
-		/* RETREIVE name */
+		/* RETRIEVE name */
 		name = entries1->entry;
 
-		/* RETREIVE tid */
+		/* RETRIEVE tid */
 		ret = snprintf(tmp_path, sizeof(tmp_path), "%s/tid", entries1->path);
-	    if (ret < 0 || ret >= sizeof(tmp_path)) {
-	        goto iscsi_retrieve_sessions_scst_error;
-	    }
-		if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK) {
-            goto iscsi_retrieve_sessions_scst_error;
-		}
-		if (tid) {
-		    free(tid);
-		}
+		if (ret < 0 || ret >= sizeof(tmp_path))
+			goto iscsi_retrieve_sessions_scst_error;
+		if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
+			goto iscsi_retrieve_sessions_scst_error;
+		if (tid)
+			free(tid);
 		tid = buffer;
 		buffer = NULL;
 
 		ret = snprintf(path, sizeof(path), "%s/sessions", entries1->path);
-        if (ret < 0 || ret >= sizeof(path)) {
-            goto iscsi_retrieve_sessions_scst_error;
-        }
+		if (ret < 0 || ret >= sizeof(path))
+			goto iscsi_retrieve_sessions_scst_error;
+
 		entries2 = iscsi_look_for_stuff(path, "iqn.", B_TRUE, 4);
 		_entries2 = entries2;
 		while (entries2 != NULL) {
 			/* DIR: $SYSFS/targets/iscsi/$name/sessions/$initiator */
 
-			/* RETREIVE initiator */
+			/* RETRIEVE initiator */
 			initiator = entries2->entry;
 
-			/* RETREIVE sid */
+			/* RETRIEVE sid */
 			ret = snprintf(tmp_path, sizeof(tmp_path), "%s/sid", entries2->path);
-	        if (ret < 0 || ret >= sizeof(tmp_path)) {
-	            goto iscsi_retrieve_sessions_scst_error;
-	        }
-			if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK) {
-                goto iscsi_retrieve_sessions_scst_error;
-			}
-	        if (sid) {
-	            free(sid);
-	        }
-	        sid = buffer;
-	        buffer = NULL;
+			if (ret < 0 || ret >= sizeof(tmp_path))
+				goto iscsi_retrieve_sessions_scst_error;
+			if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
+				goto iscsi_retrieve_sessions_scst_error;
+			if (sid)
+				free(sid);
+			sid = buffer;
+			buffer = NULL;
 
 			entries3 = iscsi_look_for_stuff(entries2->path, NULL, B_TRUE, 4);
 			_entries3 = entries3;
 			while (entries3 != NULL) {
 				/* DIR: $SYSFS/targets/iscsi/$name/sessions/$initiator/$ip */
-			    ret = snprintf(path, sizeof (path), "%s/cid", entries3->path);
-	            if (ret < 0 || ret >= sizeof(path)) {
-	                goto iscsi_retrieve_sessions_scst_error;
-	            }
+				ret = snprintf(path, sizeof (path), "%s/cid", entries3->path);
+				if (ret < 0 || ret >= sizeof(path))
+					goto iscsi_retrieve_sessions_scst_error;
 				if (stat(path, &eStat) == -1)
 					/* Not a IP directory */
 					break;
 
-				/* RETREIVE ip */
+				/* RETRIEVE ip */
 				ip = entries3->entry;
 
-				/* RETREIVE cid */
+				/* RETRIEVE cid */
 				ret = snprintf(tmp_path, sizeof(tmp_path), "%s/cid", entries3->path);
-	            if (ret < 0 || ret >= sizeof(tmp_path)) {
-	                goto iscsi_retrieve_sessions_scst_error;
-	            }
-	            if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK) {
-	                goto iscsi_retrieve_sessions_scst_error;
-	            }
-	            if (cid) {
-	                free(cid);
-	            }
-	            cid = buffer;
-	            buffer = NULL;
+				if (ret < 0 || ret >= sizeof(tmp_path))
+					goto iscsi_retrieve_sessions_scst_error;
+				if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
+					goto iscsi_retrieve_sessions_scst_error;
+				if (cid)
+					free(cid);
+				cid = buffer;
+				buffer = NULL;
 
-				/* RETREIVE state */
+				/* RETRIEVE state */
 				ret = snprintf(tmp_path, sizeof(tmp_path), "%s/state", entries3->path);
-	            if (ret < 0 || ret >= sizeof(tmp_path)) {
-	                goto iscsi_retrieve_sessions_scst_error;
-	            }
-	            if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK) {
-	                goto iscsi_retrieve_sessions_scst_error;
-	            }
-	            if (state) {
-	                free(state);
-	            }
-	            state = buffer;
-	            buffer = NULL;
+				if (ret < 0 || ret >= sizeof(tmp_path))
+					goto iscsi_retrieve_sessions_scst_error;
+				if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
+					goto iscsi_retrieve_sessions_scst_error;
+				if (state)
+					free(state);
+				state = buffer;
+				buffer = NULL;
 
 				/* SAVE values */
 				if (tid == NULL || sid == NULL || cid == NULL ||
-				    name == NULL || initiator == NULL || ip == NULL ||
-				    state == NULL)
+				    name == NULL || initiator == NULL || 
+				    ip == NULL || state == NULL)
 					continue; /* Incomplete session definition */
 
-				session = (iscsi_session_t *)malloc(sizeof (iscsi_session_t));
+				session = (iscsi_session_t *) malloc(sizeof (iscsi_session_t));
 				if (session == NULL)
-					exit(SA_NO_MEMORY); /* TODO: Why hard exit here and not in iscsi_retrieve_sessions_iet() ? */
+					exit(SA_NO_MEMORY);
 
 				session->tid = atoi(tid);
 				session->sid = atoi(sid);
 				session->cid = atoi(cid);
 
-				strncpy(session->name, name, sizeof (session->name));
-				strncpy(session->initiator, initiator, sizeof (session->initiator));
-				strncpy(session->ip, ip, sizeof (session->ip));
+				strncpy(session->name,      name,
+					sizeof (session->name));
+				strncpy(session->initiator, initiator,
+					sizeof (session->initiator));
+				strncpy(session->ip,        ip,
+					sizeof (session->ip));
 
 				session->hd[0] = '\0';
 				session->dd[0] = '\0';
@@ -838,46 +760,46 @@ iscsi_retrieve_sessions_scst(void)
 				new_session = session;
 
 				/* clear variables */
-			    free(tid);
-			    free(sid);
-			    free(cid);
-			    free(state);
-			    name = tid = sid = cid = ip = initiator = state = NULL;
+				free(tid);
+				free(sid);
+				free(cid);
+				free(state);
+				name = tid = sid = cid = ip = NULL;
+				initiator = state = NULL;
 
 				/* Next entry in initiator ip directory */
 				entries3 = entries3->next;
 			}
-			iscsi_dirs_free(_entries3);
+			iscsi_dirs_free_list(_entries3);
 
 			/* Next entry in initiator directory */
 			entries2 = entries2->next;
 		}
-        iscsi_dirs_free(_entries2);
+		iscsi_dirs_free_list(_entries2);
 
 		/* Next entry in target directory */
 		entries1 = entries1->next;
 	}
-	iscsi_dirs_free(_entries1);
+	iscsi_dirs_free_list(_entries1);
 
-    free(tid);
-    free(sid);
-    free(cid);
-    free(state);
+	free(tid);
+	free(sid);
+	free(cid);
+	free(state);
 
-    return new_session;
+	return new_session;
 
 iscsi_retrieve_sessions_scst_error:
+	iscsi_dirs_free_list(_entries1);
+	iscsi_dirs_free_list(_entries2);
+	iscsi_dirs_free_list(_entries3);
 
-    iscsi_dirs_free(_entries1);
-    iscsi_dirs_free(_entries2);
-    iscsi_dirs_free(_entries3);
+	free(tid);
+	free(sid);
+	free(cid);
+	free(state);
 
-    free(tid);
-    free(sid);
-    free(cid);
-    free(state);
-
-    return NULL;
+	return NULL;
 }
 
 /* iscsi_retrieve_targets_iet() retrieves list of iSCSI targets - IET version */
@@ -887,70 +809,62 @@ iscsi_retrieve_targets_iet(void)
 	FILE *iscsi_volumes_fp = NULL;
 	char buffer[512];
 	char *line, *token, *key, *value, *colon, *dup_value;
+	int rc = SA_OK, buffer_len;
+	iscsi_session_t *session, *sessions;
+	enum { ISCSI_TARGET, ISCSI_LUN } type;
+
+	/* For soring the targets */
 	char *tid = NULL, *name = NULL, *lun = NULL, *state = NULL;
 	char *iotype = NULL, *iomode = NULL, *blocks = NULL;
 	char *blocksize = NULL, *path = NULL;
 	iscsi_target_t *target, *new_targets = NULL;
-	iscsi_session_t *session, *sessions;
-	int buffer_len, rc = SA_OK;
-	enum { ISCSI_TARGET, ISCSI_LUN } type;
 
 	/* Get all sessions */
 	sessions = iscsi_retrieve_sessions_iet();
 
 	/* Open file with targets */
 	iscsi_volumes_fp = fopen(PROC_IET_VOLUME, "r");
-	if (iscsi_volumes_fp == NULL) {
-		rc = SA_SYSTEM_ERR;
-		goto retrieve_targets_iet_out;
-	}
+	if (iscsi_volumes_fp == NULL)
+		return SA_SYSTEM_ERR;
 
 	/* Load the file... */
 	while (fgets(buffer, sizeof (buffer), iscsi_volumes_fp) != NULL) {
 		/* Trim trailing new-line character(s). */
 		buffer_len = strlen(buffer);
-		while (buffer[buffer_len - 1] == '\r' ||
-		       buffer[buffer_len - 1] == '\n')
-			buffer[buffer_len - 1] = '\0';
+		while (buffer_len > 0) {
+			buffer_len--;
+			if (buffer[buffer_len] == '\r' ||
+			    buffer[buffer_len] == '\n') {
+				buffer[buffer_len] = 0;
+			} else
+				break;
+		}
 
 		if (buffer[0] != '\t') {
 			/*
-			 * Line doesn't start with a TAB which means this is a
-			 * target definition
+			 * Line doesn't start with a TAB which
+			 * means this is a target definition
 			 */
 			line = buffer;
 			type = ISCSI_TARGET;
 
 			free(tid);
-			tid = NULL;
-
 			free(name);
-			name = NULL;
+			free(lun);
+			free(state);
+			free(iotype);
+			free(iomode);
+			free(blocks);
+			free(blocksize);
+			free(path);
+
+			tid = name = NULL;
+			lun = state = iotype = iomode = NULL;
+			blocks = blocksize = path = NULL;
 		} else {
 			/* LUN definition */
 			line = buffer + 1;
 			type = ISCSI_LUN;
-
-			free(lun);
-			lun = NULL;
-
-			free(state);
-			state = NULL;
-
-			free(iotype);
-			iotype = NULL;
-
-			free(iomode);
-			iomode = NULL;
-
-			free(blocks);
-			blocks = NULL;
-
-			free(blocksize);
-			blocksize = NULL;
-
-			free(path);
-			path = NULL;
 		}
 
 		/* Get each option, which is separated by space */
@@ -968,10 +882,8 @@ iscsi_retrieve_targets_iet(void)
 
 			dup_value = strdup(value);
 
-			if (dup_value == NULL) {
-				rc = SA_NO_MEMORY;
-				goto retrieve_targets_iet_out;
-			}
+			if (dup_value == NULL)
+				exit(SA_NO_MEMORY);
 
 			if (type == ISCSI_TARGET) {
 				if (strcmp(key, "tid") == 0)
@@ -1009,23 +921,25 @@ next_targets:
 		if (tid == NULL || name == NULL || lun == NULL ||
 		    state == NULL || iotype == NULL || iomode == NULL ||
 		    blocks == NULL || blocksize == NULL || path == NULL)
-			continue; /* Incomplete LUN definition */
+			continue; /* Incomplete target definition */
 
-		target = (iscsi_target_t *)malloc(sizeof (iscsi_target_t));
+		target = (iscsi_target_t *) malloc(sizeof (iscsi_target_t));
 		if (target == NULL) {
 			rc = SA_NO_MEMORY;
 			goto retrieve_targets_iet_out;
 		}
 
-		target->tid = atoi(tid);
-		strncpy(target->name, name, sizeof (target->name));
-		target->lun = atoi(lun);
-		target->state = atoi(state);
+		/* Save the values in the struct */
+		target->tid       = atoi(tid);
+		target->lun       = atoi(lun);
+		target->state     = atoi(state);
+		target->blocks    = atoi(blocks);
+		target->blocksize = atoi(blocksize);
+
+		strncpy(target->name,   name,   sizeof (target->name));
+		strncpy(target->path,   path,   sizeof (target->path));
 		strncpy(target->iotype, iotype, sizeof (target->iotype));
 		strncpy(target->iomode, iomode, sizeof (target->iomode));
-		target->blocks = atoi(blocks);
-		target->blocksize = atoi(blocksize);
-		strncpy(target->path, path, sizeof (target->path));
 
 		/* Link the session here */
 		target->session = NULL;
@@ -1076,9 +990,10 @@ retrieve_targets_iet_out:
 static int
 iscsi_retrieve_targets_scst(void)
 {
-	char *buffer, *link = NULL, *dup_path, path[PATH_MAX], tmp_path[PATH_MAX];
-	int rc = SA_OK;
-	iscsi_dirs_t *entries1, *entries2, *entries3;
+	char path[PATH_MAX], tmp_path[PATH_MAX], *buffer, *link = NULL;
+	int rc = SA_SYSTEM_ERR, ret;
+	iscsi_dirs_t *entries1 = NULL, *entries2 = NULL, *entries3 = NULL;
+	iscsi_dirs_t *_entries1 = NULL, *_entries2 = NULL, *_entries3 = NULL;
 	iscsi_target_t *target, *new_targets = NULL;
 	iscsi_session_t *session, *sessions;
 
@@ -1090,59 +1005,104 @@ iscsi_retrieve_targets_scst(void)
 	sessions = iscsi_retrieve_sessions_scst();
 
 	/* DIR: /sys/kernel/scst_tgt/targets */
-	snprintf(path, sizeof (path), "%s/targets", SYSFS_SCST);
+	ret = snprintf(path, sizeof (path), "%s/targets", SYSFS_SCST);
+	if (ret < 0 || ret >= sizeof(path))
+		return SA_SYSTEM_ERR;
+
 	entries1 = iscsi_look_for_stuff(path, "iscsi", B_TRUE, 0);
+	_entries1 = entries1;
 	while (entries1 != NULL) {
 		entries2 = iscsi_look_for_stuff(entries1->path, "iqn.", B_TRUE, 4);
+		_entries2 = entries2;
 		while (entries2 != NULL) {
 			/* DIR: /sys/kernel/scst_tgt/targets/iscsi/iqn.* */
-			dup_path = entries2->path;
 
 			/* Save the share name */
-			name = strdup(entries2->entry);
+			name = entries2->entry;
 
-			/* RETREIVE state */
-			snprintf(tmp_path, strlen(dup_path)+9, "%s/enabled", dup_path);
-			iscsi_read_sysfs_value(tmp_path, &buffer);
-			state = strdup(buffer);
+			/* RETRIEVE state */
+			ret = snprintf(tmp_path, sizeof (tmp_path),
+				       "%s/enabled", entries2->path);
+			if (ret < 0 || ret >= sizeof(tmp_path))
+				goto retrieve_targets_scst_out;
+			if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
+				goto retrieve_targets_scst_out;
+			if (state)
+				free(state);
+			state = buffer;
+			buffer = NULL;
 
-			/* RETREIVE tid */
-			snprintf(tmp_path, strlen(dup_path)+5, "%s/tid", dup_path);
-			iscsi_read_sysfs_value(tmp_path, &buffer);
-			tid = strdup(buffer);
+			/* RETRIEVE tid */
+			ret = snprintf(tmp_path, sizeof (tmp_path), "%s/tid",
+				       entries2->path);
+			if (ret < 0 || ret >= sizeof(tmp_path))
+				goto retrieve_targets_scst_out;
+			if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
+				goto retrieve_targets_scst_out;
+			if (tid)
+				free(tid);
+			tid = buffer;
+			buffer = NULL;
 
-			/* RETREIVE lun(s) */
-			snprintf(tmp_path, strlen(dup_path)+6,
-				 "%s/luns", dup_path);
+			/* RETRIEVE lun(s) */
+			ret = snprintf(tmp_path, sizeof (tmp_path), "%s/luns",
+				       entries2->path);
+			if (ret < 0 || ret >= sizeof(tmp_path))
+				goto retrieve_targets_scst_out;
 			entries3 = iscsi_look_for_stuff(tmp_path, NULL, B_TRUE, 0);
+			_entries3 = entries3;
 			while (entries3 != NULL) {
-				lun = strdup(entries3->entry);
+				lun = entries3->entry;
 
-				/* RETREIVE blocksize */
-				snprintf(tmp_path, strlen(dup_path)+25,
-					 "%s/luns/%s/device/blocksize", dup_path, lun);
-				iscsi_read_sysfs_value(tmp_path, &buffer);
-				blocksize = strdup(buffer);
+				/* RETRIEVE blocksize */
+				ret = snprintf(tmp_path, sizeof (tmp_path),
+					       "%s/luns/%s/device/blocksize",
+					       entries2->path, lun);
+				if (ret < 0 || ret >= sizeof(tmp_path))
+					goto retrieve_targets_scst_out;
+				if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
+					goto retrieve_targets_scst_out;
+				if (blocksize)
+					free(blocksize);
+				blocksize = buffer;
+				buffer = NULL;
 
-				/* RETREIVE block device path */
-				snprintf(tmp_path, strlen(dup_path)+24,
-					 "%s/luns/%s/device/filename", dup_path, lun);
-				iscsi_read_sysfs_value(tmp_path, &buffer);
-				dev_path = strdup(buffer);
+				/* RETRIEVE block device path */
+				ret = snprintf(tmp_path, sizeof (tmp_path),
+					      "%s/luns/%s/device/filename",
+					      entries2->path, lun);
+				if (ret < 0 || ret >= sizeof(tmp_path))
+					goto retrieve_targets_scst_out;
+				if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
+					goto retrieve_targets_scst_out;
+				if (dev_path)
+					free(dev_path);
+				dev_path = buffer;
+				buffer = NULL;
 
-				/* RETREIVE scst device name
-				 * trickier: '6550a239-iscsi1' (s@.*-@@) */
-				snprintf(tmp_path, strlen(dup_path)+26,
-					 "%s/luns/%s/device/t10_dev_id", dup_path, lun);
-				iscsi_read_sysfs_value(tmp_path, &buffer);
-				device = strstr(buffer, "-")+1;
+				/* RETRIEVE scst device name
+				 * trickier: '6550a239-iscsi1' (s/.*-//) */
+				ret = snprintf(tmp_path, sizeof (tmp_path),
+					      "%s/luns/%s/device/t10_dev_id",
+					      entries2->path, lun);
+				if (ret < 0 || ret >= sizeof(tmp_path))
+					goto retrieve_targets_scst_out;
+				if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
+					goto retrieve_targets_scst_out;
+				if (device)
+					free(device);
+				device = strstr(buffer, "-") + 1;
+				buffer = NULL;
 
-				/* RETREIVE iotype
+				/* RETRIEVE iotype
 				 * tricker: it's only availible in the link: */
 				// $SYSFS/targets/iscsi/$name/luns/0/device/handler
 				// => /sys/kernel/scst_tgt/handlers/vdisk_blockio
-				snprintf(tmp_path, strlen(dup_path)+23,
-					 "%s/luns/%s/device/handler", dup_path, lun);
+				ret = snprintf(tmp_path, sizeof (tmp_path),
+					       "%s/luns/%s/device/handler",
+					       entries2->path, lun);
+				if (ret < 0 || ret >= sizeof(tmp_path))
+					goto retrieve_targets_scst_out;
 
 				link = (char *) calloc(PATH_MAX, 1);
 				if (link == NULL) {
@@ -1156,16 +1116,15 @@ iscsi_retrieve_targets_scst(void)
 
 				/* TODO: Retrieve iomode */
 
-
-				target = (iscsi_target_t *)malloc(sizeof (iscsi_target_t));
+				target = (iscsi_target_t *) malloc(sizeof (iscsi_target_t));
 				if (target == NULL) {
 					rc = SA_NO_MEMORY;
 					goto retrieve_targets_scst_out;
 				}
 
-				target->tid = atoi(tid);
-				target->lun = atoi(lun);
-				target->state = atoi(state);
+				target->tid       = atoi(tid);
+				target->lun       = atoi(lun);
+				target->state     = atoi(state);
 				target->blocksize = atoi(blocksize);
 
 				strncpy(target->name,   name,     sizeof (target->name));
@@ -1174,6 +1133,7 @@ iscsi_retrieve_targets_scst(void)
 				strncpy(target->iotype, iotype,   sizeof (target->iotype));
 // TODO				strncpy(target->iomode, iomode,   sizeof (target->iomode));
 
+				/* Link the session here */
 				target->session = NULL;
 				session = sessions;
 				while (session != NULL) {
@@ -1197,19 +1157,46 @@ iscsi_retrieve_targets_scst(void)
 				/* Next entry in lun directory */
 				entries3 = entries3->next;
 			}
+			iscsi_dirs_free_list(_entries3);
 
 			/* Next entry in target directory */
 			entries2 = entries2->next;
 		}
+		iscsi_dirs_free_list(_entries2);
 
 		/* Next target dir */
 		entries1 = entries1->next;
 	}
+	iscsi_dirs_free_list(_entries1);
+
+	free(tid);
+	free(lun);
+	free(state);
+	free(blocksize);
+	free(name);
+	free(iotype);
+	free(dev_path);
+	free(device);
 
 	/* TODO: free existing iscsi_targets */
 	iscsi_targets = new_targets;
 
+	return SA_OK;
+
 retrieve_targets_scst_out:
+	iscsi_dirs_free_list(_entries1);
+	iscsi_dirs_free_list(_entries2);
+	iscsi_dirs_free_list(_entries3);
+
+	free(tid);
+	free(lun);
+	free(state);
+	free(blocksize);
+	free(name);
+	free(iotype);
+	free(dev_path);
+	free(device);
+
 	return rc;
 }
 
@@ -1217,14 +1204,12 @@ retrieve_targets_scst_out:
 static int
 iscsi_retrieve_targets(void)
 {
-	int rc = SA_OK;
-
 	if (iscsi_implementation == 1)
-		rc = iscsi_retrieve_targets_iet();
+		return iscsi_retrieve_targets_iet();
 	else if (iscsi_implementation == 2)
-		rc = iscsi_retrieve_targets_scst();
-
-	return rc;
+		return iscsi_retrieve_targets_scst();
+	else
+		return SA_SYSTEM_ERR;
 }
 
 /**
@@ -1360,9 +1345,9 @@ iscsi_get_shareopts(sa_share_impl_t impl_share, const char *shareopts,
 
 	/* Set defaults */
 	if (impl_share && impl_share->dataset) {
-		if (iscsi_generate_target(impl_share->dataset, iqn,
-					  sizeof (iqn)) < 0)
-			return SA_SYSTEM_ERR;
+		if ((rc = iscsi_generate_target(impl_share->dataset, iqn,
+						sizeof (iqn))) != 0)
+			return rc;
 
 		strncpy(new_opts->name, iqn, strlen(iqn));
 		new_opts->name [strlen(iqn)+1] = '\0';
@@ -1410,7 +1395,7 @@ iscsi_enable_share_one_iet(sa_share_impl_t impl_share, int tid)
 	char *argv[10], params_name[255], params[255], tid_s[11];
 	char *shareopts;
 	iscsi_shareopts_t *opts;
-	int rc;
+	int rc, ret;
 
 	opts = (iscsi_shareopts_t *) malloc(sizeof (iscsi_shareopts_t));
 	if (opts == NULL)
@@ -1439,10 +1424,19 @@ iscsi_enable_share_one_iet(sa_share_impl_t impl_share, int tid)
 
 	/* ====== */
 	/* PART 1 - do the (inital) share. No path etc... */
-	snprintf(params_name, sizeof (params_name), "Name=%s", opts->name);
+	ret = snprintf(params_name, sizeof (params_name), "Name=%s",
+		       opts->name);
+	if (ret < 0 || ret >= sizeof(params_name)) {
+		free(opts);
+		return SA_SYSTEM_ERR;
+	}
 
 	/* int: between -2,147,483,648 and 2,147,483,647 => 10 chars + NUL */
-	snprintf(tid_s, sizeof(tid_s), "%d", tid);
+	ret = snprintf(tid_s, sizeof(tid_s), "%d", tid);
+	if (ret < 0 || ret >= sizeof(tid_s)) {
+		free(opts);
+		return SA_SYSTEM_ERR;
+	}
 
 	argv[0] = IETM_CMD_PATH;
 	argv[1] = (char*)"--op";
@@ -1461,13 +1455,21 @@ iscsi_enable_share_one_iet(sa_share_impl_t impl_share, int tid)
 
 	/* ====== */
 	/* PART 2 - Set share path and lun. */
-	snprintf(params, sizeof (params),
-		 "Path=%s,Type=%s,iomode=%s,BlockSize=%d",
-		 impl_share->sharepath, opts->type, opts->iomode,
-		 opts->blocksize);
+	ret = snprintf(params, sizeof (params),
+		       "Path=%s,Type=%s,iomode=%s,BlockSize=%d",
+		       impl_share->sharepath, opts->type, opts->iomode,
+		       opts->blocksize);
+	if (ret < 0 || ret >= sizeof(params)) {
+		free(opts);
+		return SA_SYSTEM_ERR;
+	}
 
 	argv[5] = (char*)"--lun";
-	snprintf(argv[6], sizeof(argv[6]), "%d", opts->lun);
+	ret = snprintf(argv[6], sizeof(argv[6]), "%d", opts->lun);
+	if (ret < 0 || ret >= sizeof(argv[6])) {
+		free(opts);
+		return SA_SYSTEM_ERR;
+	}
 	argv[7] = (char*)"--params";
 	argv[8] = params;
 	argv[9] = NULL;
@@ -1502,7 +1504,7 @@ iscsi_enable_share_one_scst(sa_share_impl_t impl_share, int tid)
 {
 	char *argv[3], *shareopts, *device, buffer[255], path[PATH_MAX];
 	iscsi_shareopts_t *opts;
-	int rc;
+	int rc, ret;
 
 #ifdef DEBUG
 	fprintf(stderr, "iscsi_enable_share_one: tid=%d, sharepath=%s\n",
@@ -1522,7 +1524,7 @@ iscsi_enable_share_one_scst(sa_share_impl_t impl_share, int tid)
 	}
 
 	/* Generate a scst device name from the dataset name */
-	iscsi_generate_device_name(impl_share->dataset, &device);
+	iscsi_generate_scst_device_name(&device);
 
 #ifdef DEBUG
 	fprintf(stderr, "iscsi_enable_share_one: name=%s, iomode=%s, type=%s, lun=%d, blocksize=%d\n",
@@ -1533,30 +1535,70 @@ iscsi_enable_share_one_scst(sa_share_impl_t impl_share, int tid)
 	/* PART 1 - Add target */
 	// echo "add_target $name" > $SYSFS/targets/iscsi/mgmt
 	strcpy(path, "targets/iscsi/mgmt");
-	sprintf(buffer, "add_target %s", opts->name);
-	iscsi_write_sysfs_value(path, buffer);
+	ret = snprintf(buffer, sizeof (buffer), "add_target %s", opts->name);
+	if (ret < 0 || ret >= sizeof(buffer)) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
+	if (iscsi_write_sysfs_value(path, buffer) != SA_OK) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
 
 	/* ====== */
 	/* PART 2 - Add device */
 	// echo "add_device $dev filename=/dev/zvol/$vol; blocksize=512" > $SYSFS/handlers/vdisk_blockio/mgmt
-	sprintf(path, "handlers/vdisk_%s/mgmt", opts->type);
-	sprintf(buffer, "add_device %s filename=%s; blocksize=%d",
-		device, impl_share->sharepath, opts->blocksize);
-	iscsi_write_sysfs_value(path, buffer);
+	ret = snprintf(path, sizeof (buffer), "handlers/vdisk_%s/mgmt",
+		       opts->type);
+	if (ret < 0 || ret >= sizeof(path)) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
+	ret = snprintf(buffer, sizeof (buffer), "add_device %s filename=%s; blocksize=%d",
+		       device, impl_share->sharepath, opts->blocksize);
+	if (ret < 0 || ret >= sizeof(buffer)) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
+	if (iscsi_write_sysfs_value(path, buffer) != SA_OK) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
 
 	/* ====== */
 	/* PART 3 - Add lun */
 	// echo "add $dev 0" > $SYSFS/targets/iscsi/$name/luns/mgmt
-	sprintf(path, "targets/iscsi/%s/luns/mgmt", opts->name);
-	sprintf(buffer, "add %s %d", device, opts->lun);
-	iscsi_write_sysfs_value(path, buffer);
+	ret = snprintf(path, sizeof (path), "targets/iscsi/%s/luns/mgmt",
+		       opts->name);
+	if (ret < 0 || ret >= sizeof(path)) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
+	ret = snprintf(buffer, sizeof (buffer), "add %s %d", device,
+		       opts->lun);
+	if (ret < 0 || ret >= sizeof(buffer)) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
+	if (iscsi_write_sysfs_value(path, buffer) != SA_OK) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
 
 	/* ====== */
 	/* PART 4 - Enable target */
 	// echo 1 > $SYSFS/targets/iscsi/$name/enabled
-	sprintf(path, "targets/iscsi/%s/enabled", opts->name);
+	ret = snprintf(path, sizeof (path), "targets/iscsi/%s/enabled",
+		       opts->name);
+	if (ret < 0 || ret >= sizeof(path)) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
 	strcpy(buffer, "1");
-	iscsi_write_sysfs_value(path, buffer);
+	if (iscsi_write_sysfs_value(path, buffer) != SA_OK) {
+		free(opts);
+		return SA_NO_MEMORY;
+	}
 
 	/* ====== */
 	/* PART 5 - Run local update script. */
@@ -1581,16 +1623,12 @@ iscsi_enable_share_one_scst(sa_share_impl_t impl_share, int tid)
 static int
 iscsi_enable_share_one(sa_share_impl_t impl_share, int tid)
 {
-	int rc = SA_OK;
-
 	if (iscsi_implementation == 1)
-		rc = iscsi_enable_share_one_iet(impl_share, tid);
+		return iscsi_enable_share_one_iet(impl_share, tid);
 	else if (iscsi_implementation == 2)
-		rc = iscsi_enable_share_one_scst(impl_share, tid);
+		return iscsi_enable_share_one_scst(impl_share, tid);
 	else
-		rc = SA_SYSTEM_ERR;
-
-	return rc;
+		return SA_SYSTEM_ERR;
 }
 
 static int
@@ -1629,10 +1667,12 @@ iscsi_disable_share_one_iet(int tid)
 {
 	char *argv[6];
 	char tid_s[11];
-	int rc;
+	int rc, ret;
 
 	/* int: between -2,147,483,648 and 2,147,483,647 => 10 chars + NUL */
-	snprintf(tid_s, sizeof (tid_s), "%d", tid);
+	ret = snprintf(tid_s, sizeof (tid_s), "%d", tid);
+	if (ret < 0 || ret >= sizeof(tid_s))
+		return SA_SYSTEM_ERR;
 
 	argv[0] = IETM_CMD_PATH;
 	argv[1] = (char*)"--op";
@@ -1652,6 +1692,7 @@ static int
 iscsi_disable_share_one_scst(int tid)
 {
 	char path[PATH_MAX], buffer[255];
+	int ret;
 
 	/* Retreive the list of (possible) active shares */
 	iscsi_retrieve_targets();
@@ -1672,24 +1713,39 @@ iscsi_disable_share_one_scst(int tid)
 	/* ====== */
 	/* PART 1 - Disable target */
 	// echo 0 > $SYSFS/targets/iscsi/$name/enabled
-	sprintf(path, "targets/iscsi/%s/enabled", iscsi_targets->name);
+	ret = snprintf(path, sizeof (path), "targets/iscsi/%s/enabled",
+		       iscsi_targets->name);
+	if (ret < 0 || ret >= sizeof(path))
+		return SA_SYSTEM_ERR;
 	strcpy(buffer, "0");
-	iscsi_write_sysfs_value(path, buffer);
+	if (iscsi_write_sysfs_value(path, buffer) != SA_OK)
+		return SA_NO_MEMORY;
 
 	/* ====== */
 	/* PART 2 - Delete device */
         // dev=`/bin/ls -l $SYSFS/targets/iscsi/$name/luns/0/device | sed 's@.*/@@'`
         // echo "del_device $dev" > $SYSFS/handlers/vdisk_blockio/mgmt
-	sprintf(path, "handlers/vdisk_%s/mgmt", iscsi_targets->iotype);
-	sprintf(buffer, "del_device %s", iscsi_targets->device);
-	iscsi_write_sysfs_value(path, buffer);
+	ret = snprintf(path, sizeof (path), "handlers/vdisk_%s/mgmt",
+		       iscsi_targets->iotype);
+	if (ret < 0 || ret >= sizeof(path))
+		return SA_SYSTEM_ERR;
+	ret = snprintf(buffer, sizeof (buffer), "del_device %s",
+		       iscsi_targets->device);
+	if (ret < 0 || ret >= sizeof(buffer))
+		return SA_SYSTEM_ERR;
+	if (iscsi_write_sysfs_value(path, buffer) != SA_OK)
+		return SA_NO_MEMORY;
 
 	/* ====== */
 	/* PART 3 - Delete target */
         // echo "del_target $name" > $SYSFS/targets/iscsi/mgmt
 	strcpy(path, "targets/iscsi/mgmt");
-	sprintf(buffer, "del_target %s", iscsi_targets->name);
-	iscsi_write_sysfs_value(path, buffer);
+	ret = snprintf(buffer, sizeof (buffer), "del_target %s",
+		       iscsi_targets->name);
+	if (ret < 0 || ret >= sizeof(buffer))
+		return SA_SYSTEM_ERR;
+	if (iscsi_write_sysfs_value(path, buffer) != SA_OK)
+		return SA_NO_MEMORY;
 
 	return SA_OK;
 }
@@ -1698,14 +1754,12 @@ iscsi_disable_share_one_scst(int tid)
 static int
 iscsi_disable_share_one(int tid)
 {
-	int rc = SA_OK;
-
 	if (iscsi_implementation == 1)
-		rc = iscsi_disable_share_one_iet(tid);
+		return iscsi_disable_share_one_iet(tid);
 	else if (iscsi_implementation == 2)
-		rc = iscsi_disable_share_one_scst(tid);
-
-	return rc;
+		return iscsi_disable_share_one_scst(tid);
+	else
+		return SA_SYSTEM_ERR;
 }
 
 static int
@@ -1809,6 +1863,7 @@ iscsi_update_shareopts(sa_share_impl_t impl_share, const char *resource,
 {
 	char *shareopts_dup, *old_shareopts, tmp_opts[255], iqn[255];
 	boolean_t needs_reshare = B_FALSE, have_active_sessions = B_FALSE;
+	int ret;
 
 	if(impl_share->dataset == NULL)
 		return B_FALSE;
@@ -1838,8 +1893,12 @@ iscsi_update_shareopts(sa_share_impl_t impl_share, const char *resource,
 		 * 'next month' (when it's regenerated again) .
 		 * NOTE: Does not change shareiscsi option, only sharetab!
 		 */
-		if (iscsi_generate_target(impl_share->dataset, iqn, sizeof (iqn)) == 0) {
-			snprintf(tmp_opts, sizeof (tmp_opts), "name=%s,%s", iqn, shareopts);
+		if (iscsi_generate_target(impl_share->dataset, iqn,
+					  sizeof (iqn)) == 0) {
+			ret = snprintf(tmp_opts, sizeof (tmp_opts), "name=%s,%s",
+				       iqn, shareopts);
+			if (ret < 0 || ret >= sizeof(tmp_opts))
+				return SA_SYSTEM_ERR;
 			shareopts = tmp_opts;
 		}
 	}
