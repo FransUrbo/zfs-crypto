@@ -89,20 +89,6 @@ typedef struct iscsi_dirs_s {
 	struct	iscsi_dirs_s *next;
 } iscsi_dirs_t;
 
-/**
- * Free a list of iscsi_dirs_t's
- */
-static void
-iscsi_dirs_free_list(iscsi_dirs_t *entries) {
-    iscsi_dirs_t *next;
-
-    while (entries) {
-        next = entries->next;
-
-        free(entries);
-    }
-}
-
 static iscsi_dirs_t *
 iscsi_look_for_stuff(char *path, const char *needle, boolean_t check_dir,
 		     int check_len)
@@ -112,7 +98,7 @@ iscsi_look_for_stuff(char *path, const char *needle, boolean_t check_dir,
 	struct dirent *directory;
 	struct stat eStat;
 	iscsi_dirs_t *entries = NULL, *new_entries = NULL;
-	int ret;
+	int ret, found = 0;
 
 	/* Make sure that path is set */
 	assert(path != NULL);
@@ -162,6 +148,8 @@ iscsi_look_for_stuff(char *path, const char *needle, boolean_t check_dir,
 
 			entries->next = new_entries;
 			new_entries = entries;
+
+			found = 1;
 		}
 
 look_out:
@@ -642,6 +630,8 @@ iscsi_retrieve_sessions_scst(void)
 		return NULL;
 
 	entries1 = iscsi_look_for_stuff(path, "iqn.", B_TRUE, 4);
+	if (entries1 == NULL)
+		return NULL;
 	_entries1 = entries1;
 	while (entries1 != NULL) {
 		/* DIR: $SYSFS/targets/iscsi/$name */
@@ -665,6 +655,8 @@ iscsi_retrieve_sessions_scst(void)
 			goto iscsi_retrieve_sessions_scst_error;
 
 		entries2 = iscsi_look_for_stuff(path, "iqn.", B_TRUE, 4);
+		if (entries2 == NULL)
+			goto iscsi_retrieve_sessions_scst_error;
 		_entries2 = entries2;
 		while (entries2 != NULL) {
 			/* DIR: $SYSFS/targets/iscsi/$name/sessions/$initiator */
@@ -684,6 +676,8 @@ iscsi_retrieve_sessions_scst(void)
 			buffer = NULL;
 
 			entries3 = iscsi_look_for_stuff(entries2->path, NULL, B_TRUE, 4);
+			if (entries3 == NULL)
+				goto iscsi_retrieve_sessions_scst_error;
 			_entries3 = entries3;
 			while (entries3 != NULL) {
 				/* DIR: $SYSFS/targets/iscsi/$name/sessions/$initiator/$ip */
@@ -759,7 +753,7 @@ iscsi_retrieve_sessions_scst(void)
 				session->next = new_session;
 				new_session = session;
 
-				/* clear variables */
+				/* Clear variables */
 				free(tid);
 				free(sid);
 				free(cid);
@@ -770,17 +764,17 @@ iscsi_retrieve_sessions_scst(void)
 				/* Next entry in initiator ip directory */
 				entries3 = entries3->next;
 			}
-			iscsi_dirs_free_list(_entries3);
+			free(entries3);
 
 			/* Next entry in initiator directory */
 			entries2 = entries2->next;
 		}
-		iscsi_dirs_free_list(_entries2);
+		free(entries2);
 
 		/* Next entry in target directory */
 		entries1 = entries1->next;
 	}
-	iscsi_dirs_free_list(_entries1);
+	free(entries1);
 
 	free(tid);
 	free(sid);
@@ -790,9 +784,9 @@ iscsi_retrieve_sessions_scst(void)
 	return new_session;
 
 iscsi_retrieve_sessions_scst_error:
-	iscsi_dirs_free_list(_entries1);
-	iscsi_dirs_free_list(_entries2);
-	iscsi_dirs_free_list(_entries3);
+	free(entries1);
+	free(entries2);
+	free(entries3);
 
 	free(tid);
 	free(sid);
@@ -1010,9 +1004,13 @@ iscsi_retrieve_targets_scst(void)
 		return SA_SYSTEM_ERR;
 
 	entries1 = iscsi_look_for_stuff(path, "iscsi", B_TRUE, 0);
+	if (entries1 == NULL)
+		return SA_SYSTEM_ERR;
 	_entries1 = entries1;
 	while (entries1 != NULL) {
 		entries2 = iscsi_look_for_stuff(entries1->path, "iqn.", B_TRUE, 4);
+		if (entries2 == NULL)
+			goto retrieve_targets_scst_out;
 		_entries2 = entries2;
 		while (entries2 != NULL) {
 			/* DIR: /sys/kernel/scst_tgt/targets/iscsi/iqn.* */
@@ -1027,8 +1025,6 @@ iscsi_retrieve_targets_scst(void)
 				goto retrieve_targets_scst_out;
 			if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
 				goto retrieve_targets_scst_out;
-			if (state)
-				free(state);
 			state = buffer;
 			buffer = NULL;
 
@@ -1039,8 +1035,6 @@ iscsi_retrieve_targets_scst(void)
 				goto retrieve_targets_scst_out;
 			if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
 				goto retrieve_targets_scst_out;
-			if (tid)
-				free(tid);
 			tid = buffer;
 			buffer = NULL;
 
@@ -1049,7 +1043,10 @@ iscsi_retrieve_targets_scst(void)
 				       entries2->path);
 			if (ret < 0 || ret >= sizeof(tmp_path))
 				goto retrieve_targets_scst_out;
+
 			entries3 = iscsi_look_for_stuff(tmp_path, NULL, B_TRUE, 0);
+			if (entries3 == NULL)
+				goto retrieve_targets_scst_out;
 			_entries3 = entries3;
 			while (entries3 != NULL) {
 				lun = entries3->entry;
@@ -1062,8 +1059,6 @@ iscsi_retrieve_targets_scst(void)
 					goto retrieve_targets_scst_out;
 				if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
 					goto retrieve_targets_scst_out;
-				if (blocksize)
-					free(blocksize);
 				blocksize = buffer;
 				buffer = NULL;
 
@@ -1075,8 +1070,6 @@ iscsi_retrieve_targets_scst(void)
 					goto retrieve_targets_scst_out;
 				if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
 					goto retrieve_targets_scst_out;
-				if (dev_path)
-					free(dev_path);
 				dev_path = buffer;
 				buffer = NULL;
 
@@ -1089,8 +1082,6 @@ iscsi_retrieve_targets_scst(void)
 					goto retrieve_targets_scst_out;
 				if (iscsi_read_sysfs_value(tmp_path, &buffer) != SA_OK)
 					goto retrieve_targets_scst_out;
-				if (device)
-					free(device);
 				device = strstr(buffer, "-") + 1;
 				buffer = NULL;
 
@@ -1157,26 +1148,19 @@ iscsi_retrieve_targets_scst(void)
 				/* Next entry in lun directory */
 				entries3 = entries3->next;
 			}
-			iscsi_dirs_free_list(_entries3);
+			free(entries3);
 
 			/* Next entry in target directory */
 			entries2 = entries2->next;
 		}
-		iscsi_dirs_free_list(_entries2);
+		free(entries2);
 
 		/* Next target dir */
 		entries1 = entries1->next;
 	}
-	iscsi_dirs_free_list(_entries1);
+	free(entries1);
 
-	free(tid);
-	free(lun);
-	free(state);
-	free(blocksize);
-	free(name);
-	free(iotype);
-	free(dev_path);
-	free(device);
+	free(link);
 
 	/* TODO: free existing iscsi_targets */
 	iscsi_targets = new_targets;
@@ -1184,18 +1168,11 @@ iscsi_retrieve_targets_scst(void)
 	return SA_OK;
 
 retrieve_targets_scst_out:
-	iscsi_dirs_free_list(_entries1);
-	iscsi_dirs_free_list(_entries2);
-	iscsi_dirs_free_list(_entries3);
+	free(entries1);
+	free(entries2);
+	free(entries3);
 
-	free(tid);
-	free(lun);
-	free(state);
-	free(blocksize);
-	free(name);
-	free(iotype);
-	free(dev_path);
-	free(device);
+	free(link);
 
 	return rc;
 }
