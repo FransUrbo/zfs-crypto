@@ -414,19 +414,25 @@ iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
 static void
 iscsi_generate_scst_device_name(char **device)
 {
-	int i;
-	char string[17], src_chars[62] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	char string[17];
+	static const char valid_salts[] =
+		"abcdefghijklmnopqrstuvwxyz"
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		"0123456789";
+	unsigned long i;
+	struct timeval tv;
 
 	/* Mske sure that device is set */
 	assert(device != NULL);
 
 	/* Seed number for rand() */
-	srand((unsigned int) time(0) + getpid());
+	gettimeofday(&tv, NULL);
+	srand((tv.tv_sec ^ tv.tv_usec) + getpid());
 
 	/* ASCII characters only */
-	for (i = 0; i < 16; ++i)
-		string[i] = src_chars[ rand() % 62];
-	string[i] = '\0';
+	for (i = 0; i < sizeof (string) - 1; i++ )
+		string[i] = valid_salts[rand() % (sizeof (valid_salts) - 1)];
+	string[ i ] = '\0';
 
 	*device = strdup(string);
 }
