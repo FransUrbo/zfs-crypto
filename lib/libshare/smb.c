@@ -36,7 +36,7 @@
  * filesystem is called 'share/Test1'):
  *
  *	(root)# net -U root -S 127.0.0.1 conf addshare Test1 /share/Test1 \
- *		writeable=y guest_ok=y "Comment: /share/Test1"
+ *		writeable=y guest_ok=y "Dataset name: share/Test1"
  *	(root)# net conf list | grep -i '^\[test'
  *	(root)# net -U root -S 127.0.0.1 conf delshare Test1
  *
@@ -66,6 +66,11 @@ static int smb_validate_shareopts(const char *shareopts);
 
 static sa_fstype_t *smb_fstype;
 
+typedef struct smb_shares_list_s {
+	char *name;
+	struct smb_shares_list_s *next;
+} smb_shares_list_t;
+
 /* http://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way */
 void trim_whitespace(char *s) {
 	char *p = s;
@@ -77,25 +82,127 @@ void trim_whitespace(char *s) {
 	memmove(s, p, l + 1);
 }
 
+static smb_share_t *
+smb_retrieve_share_info(char *share_name)
+{
+	int ret, buffer_len;
+	FILE *sharesmb_temp_fp;
+	char buffer[512], cmd[PATH_MAX];
+	char *token, *key, *value;
+	char *dup_value, *path = NULL, *comment = NULL, *guest_ok = NULL,
+		*read_only = NULL;
+	smb_share_t *share = NULL;
+
+	// CMD: net conf showshare <share_name>
+	ret = snprintf(cmd, sizeof (cmd), "%s -S %s conf showshare %s",
+		       NET_CMD_PATH, NET_CMD_ARG_HOST, share_name);
+	if (ret < 0 || ret >= sizeof(cmd))
+		return NULL;
+
+	sharesmb_temp_fp = popen(cmd, "r");
+	if (sharesmb_temp_fp == NULL)
+		return NULL;
+
+	while (fgets(buffer, sizeof(buffer), sharesmb_temp_fp) != 0) {
+		/* Trim trailing new-line character(s). */
+		buffer_len = strlen(buffer);
+		while (buffer_len > 0) {
+			buffer_len--;
+			if (buffer[buffer_len] == '\r' ||
+			    buffer[buffer_len] == '\n') {
+				buffer[buffer_len] = 0;
+			} else
+				break;
+		}
+
+		/* Split the line in two, separated by '=' */
+		token = strchr(buffer, '=');
+		if (token == NULL)
+			/* This will also catch empty lines */
+			continue;
+
+		key = buffer;
+		value = token + 1;
+		*token = '\0';
+
+		trim_whitespace(key);
+		trim_whitespace(value);
+
+		dup_value = strdup(value);
+		if (dup_value == NULL) {
+			if (pclose(sharesmb_temp_fp) != 0)
+				fprintf(stderr, "Failed to pclose stream\n");
+			return NULL;
+		}
+
+		if (strcmp(key, "path") == 0)
+			path = dup_value;
+		if (strcmp(key, "comment") == 0)
+			comment = dup_value;
+		if (strcmp(key, "guest ok") == 0)
+			guest_ok = dup_value;
+		if (strcmp(key, "read only") == 0)
+			read_only = dup_value;
+
+		if (path == NULL || comment == NULL ||
+		    guest_ok == NULL || read_only == NULL)
+			continue; /* Incomplete share definition */
+		else {
+			share = (smb_share_t *) malloc(sizeof (smb_share_t));
+			if (share == NULL) {
+				if (pclose(sharesmb_temp_fp) != 0)
+					fprintf(stderr, "Failed to pclose stream\n");
+				return NULL;
+			}
+
+			strncpy(share->path, path, sizeof(share->path));
+			share->path[sizeof(share->path)-1] = '\0';
+
+			strncpy(share->comment, comment, sizeof(share->comment));
+			share->comment[sizeof(share->comment)-1] = '\0';
+
+			if(strcmp(guest_ok, "yes") == 0)
+				share->guest_ok = B_TRUE;
+			else
+				share->guest_ok = B_FALSE;
+
+			if(strcmp(read_only, "no") == 0)
+				share->writeable = B_TRUE;
+			else
+				share->writeable = B_FALSE;
+
+			path = NULL;
+			comment = NULL;
+			guest_ok = NULL;
+			read_only = NULL;
+		}
+	}
+
+	if (pclose(sharesmb_temp_fp) != 0)
+		fprintf(stderr, "Failed to pclose stream\n");
+
+	return share;
+}
+
 /**
  * Retrieve the list of SMB shares.
  */
 static int
 smb_retrieve_shares(void)
 {
-	int rc = SA_OK, ret, buffer_len;
+	int rc, ret, buffer_len;
 	FILE *sharesmb_temp_fp;
-	char buffer[512], cmd[PATH_MAX];
-	char *token, *key, *value;
-	char *dup_value, *path = NULL, *comment = NULL, *guest_ok = NULL,
-		*read_only = NULL, *name = NULL;
+	char buffer[512], cmd[PATH_MAX], *dup_value;
+	smb_shares_list_t *shares_list, *new_shares_list = NULL;
 	smb_share_t *shares, *new_shares = NULL;
 
 	if (!smb_available())
 		return SA_SYSTEM_ERR;
 
-	// CMD: net conf list
-	ret = snprintf(cmd, sizeof (cmd), "%s -S %s conf list", NET_CMD_PATH, NET_CMD_ARG_HOST);
+	/* First retrieve a list of all shares, without info */
+	// CMD: net conf listshares
+	ret = snprintf(cmd, sizeof (cmd), "%s -S %s conf listshares",
+		       NET_CMD_PATH, NET_CMD_ARG_HOST);
 	if (ret < 0 || ret >= sizeof(cmd))
 		return SA_SYSTEM_ERR;
 
@@ -115,95 +222,60 @@ smb_retrieve_shares(void)
 				break;
 		}
 
-		if (buffer[0] == '[' && buffer[strlen(buffer)-1] == ']') {
-			key = "name";
+		if (strcmp(buffer, "global") == 0)
+			continue; /* Not a share */
 
-			value = strchr(buffer, '[') + 1;
-			value[strlen(value)-1] = '\0';
-		} else {
-			/* Split the line in two, separated by '=' */
-			token = strchr(buffer, '=');
-			if (token == NULL)
-				continue;
-
-			key = buffer;
-			value = token + 1;
-			*token = '\0';
-
-			trim_whitespace(key);
-			trim_whitespace(value);
-		}
-
-		dup_value = strdup(value);
+		dup_value = strdup(buffer);
 		if (dup_value == NULL) {
 			rc = SA_NO_MEMORY;
 			goto smb_retrieve_shares_out;
 		}
 
-		if (strcmp(key, "name") == 0)
-			name = dup_value;
-		if (strcmp(key, "path") == 0)
-			path = dup_value;
-		if (strcmp(key, "comment") == 0)
-			comment = dup_value;
-		if (strcmp(key, "guest ok") == 0)
-			guest_ok = dup_value;
-		if (strcmp(key, "read only") == 0)
-			read_only = dup_value;
+		shares_list = (smb_shares_list_t *) malloc(sizeof (smb_shares_list_t));
+		if (shares_list == NULL) {
+			rc = SA_NO_MEMORY;
+			goto smb_retrieve_shares_out;
+		}
 
-		if (name == NULL || path == NULL || comment == NULL ||
-		    guest_ok == NULL || read_only == NULL)
-			continue; /* Incomplete share definition */
-		else {
+		shares_list->name = dup_value;
+
+		shares_list->next = new_shares_list;
+		new_shares_list = shares_list;
+	}
+
+	if (pclose(sharesmb_temp_fp) != 0)
+		fprintf(stderr, "Failed to pclose stream\n");
+
+	/* Got through each share, retrieving their configuration */
+	shares_list = new_shares_list;
+	while (shares_list != NULL) {
+		shares = smb_retrieve_share_info(shares_list->name);
+		strncpy(shares->name, shares_list->name, sizeof(shares->name));
+		shares->name[sizeof(shares->name)-1] = '\0';
+
 #ifdef DEBUG
-			fprintf(stderr, "smb_retrieve_shares: name='%s', "
-				"path='%s', comment='%s', guest_ok='%s', "
-				"read_only='%s'\n",
-				name, path, comment, guest_ok, read_only);
+		fprintf(stderr, "smb_retrieve_shares: name='%s', "
+			"path='%s', comment='%s', guest_ok=%d, "
+			"writeable=%d\n",
+			shares->name, shares->path, shares->comment,
+			shares->guest_ok, shares->writeable);
 #endif
 
-			shares = (smb_share_t *) malloc(sizeof (smb_share_t));
-			if (shares == NULL) {
-				rc = SA_NO_MEMORY;
-				goto smb_retrieve_shares_out;
-			}
+		shares->next = new_shares;
+		new_shares = shares;
 
-			strncpy(shares->name, name, sizeof (shares->name));
-			strncpy(shares->path, path, sizeof (shares->path));
-			strncpy(shares->comment, comment, sizeof (shares->comment));
-
-			if(strcmp(guest_ok, "yes") == 0)
-				shares->guest_ok = B_TRUE;
-			else
-				shares->guest_ok = B_FALSE;
-
-			if(strcmp(read_only, "no") == 0)
-				shares->writeable = B_TRUE;
-			else
-				shares->writeable = B_FALSE;
-
-			shares->next = new_shares;
-			new_shares = shares;
-
-			name      = NULL;
-			path      = NULL;
-			comment   = NULL;
-			guest_ok  = NULL;
-			read_only = NULL;
-		}
+		shares_list = shares_list->next;
 	}
+
+	free(shares_list);
+
+	smb_shares = new_shares;
+
+	return SA_OK;
 
 smb_retrieve_shares_out:
 	if (pclose(sharesmb_temp_fp) != 0)
 		fprintf(stderr, "Failed to pclose stream\n");
-
-	smb_shares = new_shares;
-
-	free(name);
-	free(path);
-	free(comment);
-	free(guest_ok);
-	free(read_only);
 
 	return rc;
 }
@@ -277,7 +349,7 @@ smb_get_shareopts(sa_share_impl_t impl_share, const char *shareopts,
 		  smb_share_t **opts)
 {
 	char *pos, name[SMB_NAME_MAX];
-	int rc;
+	int rc, ret;
 	smb_share_t *new_opts;
 
 	assert(opts != NULL);
@@ -306,16 +378,17 @@ smb_get_shareopts(sa_share_impl_t impl_share, const char *shareopts,
 			++pos;
 		}
 
-		strncpy(new_opts->name, name, strlen(name));
+		strncpy(new_opts->name, name, sizeof(name));
 		new_opts->name [sizeof (new_opts->name)-1] = '\0';
-	} else
-		new_opts->name[0] = '\0';
 
-	if (impl_share && impl_share->sharepath)
-		snprintf(new_opts->comment, sizeof(new_opts->comment),
-			 "Comment: %s", impl_share->sharepath);
-	else
+		ret = snprintf(new_opts->comment, sizeof(new_opts->comment),
+			       "Dataset name: %s", name);
+		if (ret < 0 || ret >= sizeof(new_opts->comment))
+			return SA_SYSTEM_ERR;
+	} else {
+		new_opts->name[0] = '\0';
 		new_opts->comment[0] = '\0';
+	}
 
 	new_opts->writeable = B_TRUE;
 	new_opts->guest_ok = B_TRUE;
@@ -484,7 +557,6 @@ smb_disable_share(sa_share_impl_t impl_share)
 
 	/* Retrieve the list of (possible) active shares */
 	smb_retrieve_shares();
-
 	while (smb_shares != NULL) {
 		if (strcmp(impl_share->sharepath, smb_shares->path) == 0)
 			return smb_disable_share_one(smb_shares->name);
@@ -517,14 +589,17 @@ smb_is_share_active(sa_share_impl_t impl_share)
 
 	/* Retrieve the list of (possible) active shares */
 	smb_retrieve_shares();
-
 	while (smb_shares != NULL) {
 #ifdef DEBUG
 		fprintf(stderr, "smb_is_share_active: %s ?? %s\n",
 			impl_share->sharepath, smb_shares->path);
 #endif
-		if (strcmp(impl_share->sharepath, smb_shares->path) == 0)
+		if (strcmp(impl_share->sharepath, smb_shares->path) == 0) {
+#ifdef DEBUG
+			fprintf(stderr, "=> %s is active\n", smb_shares->name);
+#endif
 			return B_TRUE;
+		}
 
 		smb_shares = smb_shares->next;
 	}
@@ -610,7 +685,7 @@ smb_available(void)
 		return B_FALSE;
 	}
 
-	/* TODO: Check samba access */
+	/* Check samba access */
 	argv[0]  = NET_CMD_PATH;
 	argv[1]  = (char*)"-S";
 	argv[2]  = NET_CMD_ARG_HOST;
