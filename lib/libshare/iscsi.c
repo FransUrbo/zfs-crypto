@@ -1632,8 +1632,6 @@ iscsi_enable_share(sa_share_impl_t impl_share)
 
 	/* Retreive the list of (possible) active shares */
 	iscsi_retrieve_targets();
-
-	/* Go through list of targets, get next avail TID. */
 	while (iscsi_targets != NULL) {
 		tid = iscsi_targets->tid;
 
@@ -1679,7 +1677,6 @@ iscsi_disable_share_one_scst(int tid)
 
 	/* Retreive the list of (possible) active shares */
 	iscsi_retrieve_targets();
-
 	while (iscsi_targets != NULL) {
 		if (iscsi_targets->tid == tid) {
 #ifdef DEBUG
@@ -1791,7 +1788,6 @@ iscsi_disable_share_all(void)
 
 	/* Retreive the list of (possible) active shares */
 	iscsi_retrieve_targets();
-
 	while (iscsi_targets != NULL) {
 #ifdef DEBUG
 		fprintf(stderr, "iscsi_disable_share_all: target=%s, tid=%d, path=%s\n",
