@@ -73,6 +73,12 @@ static boolean_t iscsi_is_share_active(sa_share_impl_t);
 
 static sa_fstype_t *iscsi_fstype;
 
+enum {
+	ISCSI_IMPL_NONE,
+	ISCSI_IMPL_IET,
+	ISCSI_IMPL_SCST
+};
+
 /**
  * What iSCSI implementation found
  * -1: none
@@ -1187,9 +1193,9 @@ retrieve_targets_scst_out:
 static int
 iscsi_retrieve_targets(void)
 {
-	if (iscsi_implementation == 1)
+	if (iscsi_implementation == ISCSI_IMPL_IET)
 		return iscsi_retrieve_targets_iet();
-	else if (iscsi_implementation == 2)
+	else if (iscsi_implementation == ISCSI_IMPL_SCST)
 		return iscsi_retrieve_targets_scst();
 	else
 		return SA_SYSTEM_ERR;
@@ -1258,7 +1264,7 @@ iscsi_get_shareopts_cb(const char *key, const char *value, void *cookie)
 		 *
 		 * NOTE: Only for IET
 		 */
-		if (iscsi_implementation == 1 && 
+		if (iscsi_implementation == ISCSI_IMPL_IET &&
 		    (strcmp(dup_value, "disk") == 0 ||
 		     strcmp(dup_value, "tape") == 0))
 			strncpy(dup_value, "fileio", 10);
@@ -1606,9 +1612,9 @@ iscsi_enable_share_one_scst(sa_share_impl_t impl_share, int tid)
 static int
 iscsi_enable_share_one(sa_share_impl_t impl_share, int tid)
 {
-	if (iscsi_implementation == 1)
+	if (iscsi_implementation == ISCSI_IMPL_IET)
 		return iscsi_enable_share_one_iet(impl_share, tid);
-	else if (iscsi_implementation == 2)
+	else if (iscsi_implementation == ISCSI_IMPL_SCST)
 		return iscsi_enable_share_one_scst(impl_share, tid);
 	else
 		return SA_SYSTEM_ERR;
@@ -1734,9 +1740,9 @@ iscsi_disable_share_one_scst(int tid)
 static int
 iscsi_disable_share_one(int tid)
 {
-	if (iscsi_implementation == 1)
+	if (iscsi_implementation == ISCSI_IMPL_IET)
 		return iscsi_disable_share_one_iet(tid);
-	else if (iscsi_implementation == 2)
+	else if (iscsi_implementation == ISCSI_IMPL_SCST)
 		return iscsi_disable_share_one_scst(tid);
 	else
 		return SA_SYSTEM_ERR;
@@ -1944,12 +1950,12 @@ iscsi_available(void)
 {
 	DIR *sysfs_scst;
 
-	iscsi_implementation = -1;
+	iscsi_implementation = ISCSI_IMPL_NONE;
 
 	/* First check if this is IET */
 	if (access(PROC_IET_VOLUME, F_OK) == 0) {
 		if (access(IETM_CMD_PATH, X_OK) == 0) {
-			iscsi_implementation = 1;
+			iscsi_implementation = ISCSI_IMPL_IET;
 
 			return B_TRUE;
 		}
@@ -1957,7 +1963,7 @@ iscsi_available(void)
 		/* Then check if it's SCST */
 		sysfs_scst = opendir(SYSFS_SCST);
 		if (sysfs_scst != NULL) {
-			iscsi_implementation = 2;
+			iscsi_implementation = ISCSI_IMPL_SCST;
 			closedir(sysfs_scst);
 
 			return B_TRUE;
