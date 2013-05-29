@@ -290,14 +290,15 @@ smb_get_shareopts(sa_share_impl_t impl_share, const char *shareopts,
 
 		strncpy(new_opts->name, name, strlen(name));
 		new_opts->name [sizeof (new_opts->name)-1] = '\0';
-	} else
-		new_opts->name[0] = '\0';
 
-	if (impl_share && impl_share->sharepath)
-		snprintf(new_opts->comment, sizeof(new_opts->comment),
-			 "Comment: %s", impl_share->sharepath);
-	else
+		ret = snprintf(new_opts->comment, sizeof(new_opts->comment),
+			       "Dataset name: %s", impl_share->dataset);
+		if (ret < 0 || ret >= sizeof(new_opts->comment))
+			return SA_SYSTEM_ERR;
+	} else {
+		new_opts->name[0] = '\0';
 		new_opts->comment[0] = '\0';
+	}
 
 	strncpy(new_opts->acl, "Everyone:f", 11); // must be 'r', 'f', or 'd'
 
