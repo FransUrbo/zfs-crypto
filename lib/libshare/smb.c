@@ -382,7 +382,7 @@ smb_get_shareopts(sa_share_impl_t impl_share, const char *shareopts,
 		new_opts->name [sizeof (new_opts->name)-1] = '\0';
 
 		ret = snprintf(new_opts->comment, sizeof(new_opts->comment),
-			       "Dataset name: %s", name);
+			       "Dataset name: %s", impl_share->dataset);
 		if (ret < 0 || ret >= sizeof(new_opts->comment))
 			return SA_SYSTEM_ERR;
 	} else {
