@@ -139,15 +139,10 @@ is_shared(libzfs_handle_t *hdl, const char *mountpoint, zfs_share_proto_t proto)
 	if (hdl->libzfs_sharetab == NULL)
 		return (SHARED_NOT_SHARED);
 
-	/* Reopen the sharetab just in case it have been changed
-	 * (such as libshare would do)
-	 */
-	fclose(hdl->libzfs_sharetab);
-	hdl->libzfs_sharetab = fopen("/etc/dfs/sharetab", "r");
-	if (hdl->libzfs_sharetab == NULL)
-		return (SHARED_NOT_SHARED); // SA_SYSTEM_ERR ?
+	(void) fseek(hdl->libzfs_sharetab, 0, SEEK_SET);
 
 	while (fgets(buf, sizeof (buf), hdl->libzfs_sharetab) != NULL) {
+
 		/* the mountpoint is the first entry on each line */
 		if ((tab = strchr(buf, '\t')) == NULL)
 			continue;
