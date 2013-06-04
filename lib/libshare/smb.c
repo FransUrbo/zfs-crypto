@@ -196,8 +196,9 @@ smb_retrieve_shares(void)
 	smb_shares_list_t *shares_list, *new_shares_list = NULL;
 	smb_share_t *shares, *new_shares = NULL;
 
-	if (!smb_available())
-		return SA_SYSTEM_ERR;
+	if (smb_shares != NULL)
+		/* Try to limit the number of times we do this */
+		return SA_OK;
 
 	/* First retrieve a list of all shares, without info */
 	// CMD: net conf listshares
@@ -680,7 +681,7 @@ smb_available(void)
 	int rc;
 	char *argv[5];
 
-	if (access(NET_CMD_PATH, F_OK) != 0) {
+	if (access(NET_CMD_PATH, X_OK) != 0) {
 		fprintf(stderr, "ERROR: %s does not exist\n", NET_CMD_PATH);
 		return B_FALSE;
 	}
@@ -705,5 +706,9 @@ smb_available(void)
 void
 libshare_smb_init(void)
 {
-	smb_fstype = register_fstype("smb", &smb_shareops);
+	if (access(NET_CMD_PATH, X_OK) == 0) {
+		/* Only do part of smb_available() - forking is to expensive */
+		smb_fstype = register_fstype("smb", &smb_shareops);
+		smb_shares = NULL;
+	}
 }
