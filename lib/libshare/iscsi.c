@@ -1189,10 +1189,16 @@ retrieve_targets_scst_out:
 	return rc;
 }
 
-/* WRAPPER: Depending on iSCSI implementation, call the relevant function */
+/* WRAPPER: Depending on iSCSI implementation, call the relevant function
+ * but only if we haven't already.
+ */
 static int
 iscsi_retrieve_targets(void)
 {
+	if (iscsi_targets != NULL)
+		/* Try to limit the number of times we do this */
+		return SA_OK;
+
 	if (iscsi_implementation == ISCSI_IMPL_IET)
 		return iscsi_retrieve_targets_iet();
 	else if (iscsi_implementation == ISCSI_IMPL_SCST)
@@ -1626,9 +1632,6 @@ iscsi_enable_share(sa_share_impl_t impl_share)
 	char *shareopts;
 	int tid = 0;
 
-	if (!iscsi_available())
-		return SA_SYSTEM_ERR;
-
 	shareopts = FSINFO(impl_share, iscsi_fstype)->shareopts;
 	if (shareopts == NULL) /* on/off */
 		return SA_SYSTEM_ERR;
@@ -1751,14 +1754,6 @@ iscsi_disable_share_one(int tid)
 static int
 iscsi_disable_share(sa_share_impl_t impl_share)
 {
-	if (!iscsi_available()) {
-		/*
-		 * The share can't possibly be active, so nothing
-		 * needs to be done to disable it.
-		 */
-		return SA_OK;
-	}
-
 	/* Retreive the list of (possible) active shares */
 	iscsi_retrieve_targets();
 	while (iscsi_targets != NULL) {
@@ -1810,9 +1805,6 @@ iscsi_disable_share_all(void)
 static boolean_t
 iscsi_is_share_active(sa_share_impl_t impl_share)
 {
-	if (!iscsi_available())
-		return B_FALSE;
-
 	/* Retreive the list of (possible) active shares */
 	iscsi_retrieve_targets();
 	while (iscsi_targets != NULL) {
@@ -1948,7 +1940,7 @@ static const sa_share_ops_t iscsi_shareops = {
 static boolean_t
 iscsi_available(void)
 {
-	DIR *sysfs_scst;
+	struct stat eStat;
 
 	iscsi_implementation = ISCSI_IMPL_NONE;
 
@@ -1961,10 +1953,8 @@ iscsi_available(void)
 		}
 	} else {
 		/* Then check if it's SCST */
-		sysfs_scst = opendir(SYSFS_SCST);
-		if (sysfs_scst != NULL) {
+		if (stat(SYSFS_SCST, &eStat) == 0 && S_ISDIR(eStat.st_mode)) {
 			iscsi_implementation = ISCSI_IMPL_SCST;
-			closedir(sysfs_scst);
 
 			return B_TRUE;
 		}
@@ -1976,5 +1966,8 @@ iscsi_available(void)
 void
 libshare_iscsi_init(void)
 {
-	iscsi_fstype = register_fstype("iscsi", &iscsi_shareops);
+	if (iscsi_available()) {
+		iscsi_fstype = register_fstype("iscsi", &iscsi_shareops);
+		iscsi_targets = NULL;
+	}
 }
