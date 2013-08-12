@@ -225,7 +225,7 @@ zil_read_log_block(zilog_t *zilog, const blkptr_t *bp, blkptr_t *nbp, void *dst,
 		data = zio_data_buf_alloc(size);
 		//error = zio_wait(zio_read(NULL, zilog->zl_spa, bp, data, size,
         //           NULL, NULL, ZIO_PRIORITY_SYNC_READ, zio_flags, &zb));
-        error = dsl_read_nolock(NULL, zilog->zl_spa, bp, arc_getbuf_func, data,
+        error = arc_read(NULL, zilog->zl_spa, bp, arc_getbuf_func, data,
                                 ZIO_PRIORITY_SYNC_READ, zio_flags, &aflags, &zb);
 
 	} else {
@@ -328,7 +328,7 @@ zil_read_log_data(zilog_t *zilog, const lr_write_t *lr, void *wbuf)
 		zio_flags |= ZIO_FLAG_RAW;
 		size = BP_GET_PSIZE(bp);
 		data = zio_data_buf_alloc(size);
-        error = dsl_read_nolock(NULL, zilog->zl_spa, bp, arc_getbuf_func, data,
+        error = arc_read(NULL, zilog->zl_spa, bp, arc_getbuf_func, data,
                                 ZIO_PRIORITY_SYNC_READ, zio_flags, &aflags, &zb);
 		//error = zio_wait(zio_read(NULL, zilog->zl_spa, bp, data, size,
         //   NULL, NULL, ZIO_PRIORITY_SYNC_READ, zio_flags, &zb));
