@@ -30,6 +30,7 @@ ExcludeArch:    ppc ppc64
 
 Requires:       spl = %{version}
 Requires:       %{name}-kmod >= %{version}
+Requires:       libcurl3
 Provides:       %{name}-kmod-common = %{version}
 
 %if 0%{?rhel}%{?fedora}%{?suse_version}
