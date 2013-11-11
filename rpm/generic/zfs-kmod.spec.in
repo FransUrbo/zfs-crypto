@@ -123,7 +123,7 @@ done
 %build
 for kernel_version in %{?kernel_versions}; do
     cd _kmod_build_${kernel_version%%___*}
-    %configure \
+    %_configure \
         --with-config=kernel \
 %if 0%{?rhel}%{?fedora}
         --with-linux="${kernel_version##*___}" \
