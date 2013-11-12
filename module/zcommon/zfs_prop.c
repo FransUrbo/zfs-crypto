@@ -359,11 +359,14 @@ zfs_prop_init(void)
 	zprop_register_string(ZFS_PROP_TYPE, "type", NULL, PROP_READONLY,
 	    ZFS_TYPE_DATASET, "filesystem | volume | snapshot", "TYPE");
 	zprop_register_string(ZFS_PROP_SHARESMB, "sharesmb", "off",
-	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM,
-	    "on | off | sharemgr(1M) options", "SHARESMB");
+	    PROP_DEFAULT, ZFS_TYPE_FILESYSTEM,
+	    "on | off | name | comment | guest_ok | writeable", "SHARESMB");
 	zprop_register_string(ZFS_PROP_MLSLABEL, "mlslabel",
 	    ZFS_MLSLABEL_DEFAULT, PROP_INHERIT, ZFS_TYPE_DATASET,
 	    "<sensitivity label>", "MLSLABEL");
+	zprop_register_string(ZFS_PROP_SHAREISCSI, "shareiscsi", "off",
+	    PROP_DEFAULT, ZFS_TYPE_VOLUME, "on | off | ietadm(8M) options",
+	    "SHAREISCSI");
 	zprop_register_string(ZFS_PROP_KEYSOURCE, "keysource", "none",
 	    PROP_INHERIT, ZFS_TYPE_DATASET,
 	    "raw | hex | passphrase,"

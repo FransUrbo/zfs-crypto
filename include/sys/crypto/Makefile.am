@@ -1,6 +1,6 @@
 COMMON_H = \
-       $(top_srcdir)/include/sys/crypto/api.h \
-       $(top_srcdir)/include/sys/crypto/common.h
+	$(top_srcdir)/include/sys/crypto/api.h \
+	$(top_srcdir)/include/sys/crypto/common.h
 
 KERNEL_H =
 
