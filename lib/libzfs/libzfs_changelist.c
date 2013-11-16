@@ -632,13 +632,15 @@ changelist_gather(zfs_handle_t *zhp, zfs_prop_t prop, int gather_flags,
 
 	if (clp->cl_prop != ZFS_PROP_MOUNTPOINT &&
 	    clp->cl_prop != ZFS_PROP_SHARENFS &&
-	    clp->cl_prop != ZFS_PROP_SHARESMB)
+	    clp->cl_prop != ZFS_PROP_SHARESMB &&
+	    clp->cl_prop != ZFS_PROP_SHAREISCSI)
 		return (clp);
 
 	/*
-	 * If watching SHARENFS or SHARESMB then
+	 * If watching SHARENFS, SHARESMB then
 	 * also watch its companion property.
 	 */
+	/* TODO: add SHAREISCSI ? */
 	if (clp->cl_prop == ZFS_PROP_SHARENFS)
 		clp->cl_shareprop = ZFS_PROP_SHARESMB;
 	else if (clp->cl_prop == ZFS_PROP_SHARESMB)

@@ -1641,6 +1641,8 @@ iscsi_enable_share(sa_share_impl_t impl_share)
 
 	/* Retreive the list of (possible) active shares */
 	iscsi_retrieve_targets();
+
+	/* Go through list of targets, get next avail TID. */
 	while (iscsi_targets != NULL) {
 		tid = iscsi_targets->tid;
 

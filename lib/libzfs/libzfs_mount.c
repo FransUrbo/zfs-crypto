@@ -142,7 +142,6 @@ is_shared(libzfs_handle_t *hdl, const char *mountpoint, zfs_share_proto_t proto)
 	(void) fseek(hdl->libzfs_sharetab, 0, SEEK_SET);
 
 	while (fgets(buf, sizeof (buf), hdl->libzfs_sharetab) != NULL) {
-
 		/* the mountpoint is the first entry on each line */
 		if ((tab = strchr(buf, '\t')) == NULL)
 			continue;
