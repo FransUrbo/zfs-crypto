@@ -1,4 +1,8 @@
 %define module  @PACKAGE@
+
+%define spl     @SPL@
+%define ksrc    @LINUX@
+
 #define repo    rpmfusion
 #define repo    chaos
 
@@ -123,11 +127,15 @@ done
 %build
 for kernel_version in %{?kernel_versions}; do
     cd _kmod_build_${kernel_version%%___*}
-    %configure \
+    %_configure \
         --with-config=kernel \
 %if 0%{?rhel}%{?fedora}
         --with-linux="${kernel_version##*___}" \
         --with-linux-obj="${kernel_version##*___}" \
+%else
+%if %{defined ksrc}
+        --with-linux=%{ksrc} \
+        --with-linux-obj=%{ksrc} \
 %else
         --with-linux="$( \
         if [ -e "/lib/modules/${kernel_version%%___*}/source" ]; then \
@@ -137,8 +145,14 @@ for kernel_version in %{?kernel_versions}; do
         fi)" \
         --with-linux-obj="/lib/modules/${kernel_version%%___*}/build" \
 %endif
+%endif
+%if %{defined spl}
+	--with-spl=%{spl} \
+	--with-spl-obj=%{spl} \
+%else
         --with-spl="%{spldir}" \
         --with-spl-obj="%{splobj}" \
+%endif
         %{debug} \
         %{debug_dmu_tx}
     make %{?_smp_mflags}
