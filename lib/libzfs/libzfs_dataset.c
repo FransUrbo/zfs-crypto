@@ -3918,7 +3918,6 @@ zfs_rollback(zfs_handle_t *zhp, zfs_handle_t *snap, boolean_t force)
 {
 	rollback_data_t cb = { 0 };
 	int err;
-	zfs_cmd_t zc = {"\0"};
 	boolean_t restore_resv = 0;
 	uint64_t old_volsize = 0, new_volsize;
 	zfs_prop_t resv_prop = { 0 };
@@ -4611,7 +4610,6 @@ static int
 zfs_hold_one(zfs_handle_t *zhp, void *arg)
 {
 	struct holdarg *ha = arg;
-	zfs_handle_t *szhp;
 	char name[ZFS_MAXNAMELEN];
 	int rv = 0;
 
@@ -4738,7 +4736,6 @@ static int
 zfs_release_one(zfs_handle_t *zhp, void *arg)
 {
 	struct holdarg *ha = arg;
-	zfs_handle_t *szhp;
 	char name[ZFS_MAXNAMELEN];
 	int rv = 0;
 	nvlist_t *existing_holds;
