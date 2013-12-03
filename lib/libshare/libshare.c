@@ -245,8 +245,11 @@ update_sharetab(sa_handle_impl_t impl_handle)
 		return;
 	}
 
-	temp_fp = freopen("/etc/dfs/sharetab", "w",
-			  impl_handle->zfs_libhandle->libzfs_sharetab);
+	if(impl_handle->zfs_libhandle->libzfs_sharetab)
+	  temp_fp = freopen("/etc/dfs/sharetab", "w",
+			    impl_handle->zfs_libhandle->libzfs_sharetab);
+	else
+	  temp_fp = fopen("/etc/dfs/sharetab", "r");
 
 	if (temp_fp == NULL)
 		return;
