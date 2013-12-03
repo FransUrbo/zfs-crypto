@@ -1489,8 +1489,7 @@ zfs_crypto_zckey(libzfs_handle_t *hdl, zfs_crypto_zckey_t cmd,
 	     * Notify user that aes-128-ctr is enforced/used instead.
 	     */
             (void) fprintf(stderr, dgettext(TEXT_DOMAIN,
-                "For volumes, only %s is allowed. Forcing this to be set.\n",
-                ZIO_CRYPT_AES_128_CTR));
+                "For volumes, only 'on' or 'off' is allowed. Forcing this to be set.\n"));
 	}
 
         crypt = ZIO_CRYPT_AES_128_CTR;
