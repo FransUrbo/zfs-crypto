@@ -93,7 +93,7 @@ smb_retrieve_share_info(char *share_name)
 		*read_only = NULL;
 	smb_share_t *share = NULL;
 
-	// CMD: net conf showshare <share_name>
+	/* CMD: net conf showshare <share_name> */
 	ret = snprintf(cmd, sizeof (cmd), "%s -S %s conf showshare %s",
 		       NET_CMD_PATH, NET_CMD_ARG_HOST, share_name);
 	if (ret < 0 || ret >= sizeof(cmd))
@@ -201,7 +201,7 @@ smb_retrieve_shares(void)
 		return SA_OK;
 
 	/* First retrieve a list of all shares, without info */
-	// CMD: net conf listshares
+	/* CMD: net conf listshares */
 	ret = snprintf(cmd, sizeof (cmd), "%s -S %s conf listshares",
 		       NET_CMD_PATH, NET_CMD_ARG_HOST);
 	if (ret < 0 || ret >= sizeof(cmd))
@@ -438,7 +438,7 @@ smb_enable_share_one(sa_share_impl_t impl_share)
 
 	/* ====== */
 	/* PART 1 - do the (inital) share. */
-	// CMD: net -S NET_CMD_ARG_HOST conf addshare <sharename> <path> [writeable={y|n} [guest_ok={y|n} [<comment>]]
+	/* CMD: net -S NET_CMD_ARG_HOST conf addshare <sharename> <path> [writeable={y|n} [guest_ok={y|n} [<comment>]] */
 	argv[0]  = NET_CMD_PATH;
 	argv[1]  = (char*)"-S";
 	argv[2]  = NET_CMD_ARG_HOST;
@@ -518,7 +518,7 @@ smb_disable_share_one(const char *sharename)
 	int rc;
 	char *argv[7];
 
-	// CMD: net -S NET_CMD_ARG_HOST conf delshare Test1
+	/* CMD: net -S NET_CMD_ARG_HOST conf delshare Test1 */
 	argv[0] = NET_CMD_PATH;
 	argv[1] = (char*)"-S";
 	argv[2] = NET_CMD_ARG_HOST;
