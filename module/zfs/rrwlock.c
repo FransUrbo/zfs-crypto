@@ -201,7 +201,22 @@ rrw_enter_write(rrwlock_t *rrl)
 	    refcount_count(&rrl->rr_linked_rcount) > 0 ||
 	    rrl->rr_writer != NULL) {
 		rrl->rr_writer_wanted = B_TRUE;
+#if defined(DEBUG) && defined(_KERNEL)
+		/*
+		 * XXX: Debugging to determine which process is holding
+		 * the rrwlock.  After blocking here for 60 seconds wake
+		 * up and log the holder to the console.
+		 */
+		if (cv_timedwait(&rrl->rr_cv, &rrl->rr_lock,
+		    ddi_get_lbolt() + 60 * hz) == -1) {
+			kthread_t *thr = rrl->rr_writer;
+			printk(KERN_NOTICE "ZFS: rrl->rr_writer=%p (%s/%d)\n",
+			    thr, thr ? thr->comm : "", thr ? thr->pid : -1);
+		}
+#else
 		cv_wait(&rrl->rr_cv, &rrl->rr_lock);
+#endif /* DEBUG && _KERNEL */
+
 	}
 	rrl->rr_writer_wanted = B_FALSE;
 	rrl->rr_writer = curthread;
