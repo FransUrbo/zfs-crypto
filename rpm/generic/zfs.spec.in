@@ -14,11 +14,7 @@
 %bcond_with    blkid
 %bcond_with    selinux
 
-%if %{with debug}
-    %define dbg_name -debug
-%endif
-
-Name:           @PACKAGE@%{?dbg_name}
+Name:           @PACKAGE@
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
 Summary:        Commands to control the kernel modules and libraries
