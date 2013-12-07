@@ -1482,46 +1482,112 @@ zvol_remove_minor(const char *name)
 	return (error);
 }
 
-static int
-zvol_create_minors_cb(const char *dsname, void *arg)
+static void
+__zvol_rename_minor(zvol_state_t *zv, const char *newname)
 {
-	if (strchr(dsname, '/') == NULL)
-		return 0;
+	ASSERT(MUTEX_HELD(&zvol_state_lock));
 
-	(void) __zvol_create_minor(dsname, B_FALSE);
-	return (0);
+	strlcpy(zv->zv_name, newname, sizeof(zv->zv_name));
+
+	/*
+	 * XXX: Somehow this code needs to prompt udev so it can run
+	 * and detected the updated zvol name.
+	 */
 }
 
-/*
- * Create minors for specified pool, if pool is NULL create minors
- * for all available pools.
- */
-int
-zvol_create_minors(char *pool)
+static int
+zvol_create_snapshots(objset_t *os, const char *name)
 {
-	spa_t *spa = NULL;
-	int error = 0;
+	uint64_t cookie, obj;
+	char *sname;
+	int error, len;
+
+	cookie = obj = 0;
+	sname = kmem_alloc(MAXPATHLEN, KM_SLEEP);
+
+	for (;;) {
+		len = snprintf(sname, MAXPATHLEN, "%s@", name);
+		if (len >= MAXPATHLEN) {
+			dmu_objset_rele(os, FTAG);
+			error = ENAMETOOLONG;
+			break;
+		}
+
+		dsl_pool_config_enter(dmu_objset_pool(os), FTAG);
+		error = dmu_snapshot_list_next(os, MAXPATHLEN - len,
+		    sname + len, &obj, &cookie, NULL);
+		dsl_pool_config_exit(dmu_objset_pool(os), FTAG);
+		if (error != 0) {
+			if (error == ENOENT)
+				error = 0;
+			break;
+		}
+
+		if ((error = zvol_create_minor(sname)) != 0)
+			break;
+	}
+
+	kmem_free(sname, MAXPATHLEN);
+	return (error);
+}
+
+int
+zvol_create_minors(const char *name)
+{
+	uint64_t cookie;
+	objset_t *os;
+	char *osname, *p;
+	int error, len;
 
 	if (zvol_inhibit_dev)
 		return (0);
 
-	mutex_enter(&zvol_state_lock);
-	if (pool) {
-		error = dmu_objset_find(pool, zvol_create_minors_cb,
-		    NULL, DS_FIND_CHILDREN | DS_FIND_SNAPSHOTS);
-	} else {
-		mutex_enter(&spa_namespace_lock);
-		while ((spa = spa_next(spa)) != NULL) {
-			error = dmu_objset_find(spa_name(spa), zvol_create_minors_cb, NULL,
-			    DS_FIND_CHILDREN | DS_FIND_SNAPSHOTS);
-			if (error)
-				break;
-		}
-		mutex_exit(&spa_namespace_lock);
-	}
-	mutex_exit(&zvol_state_lock);
+	if (dataset_name_hidden(name))
+		return (0);
 
-	return error;
+	if ((error = dmu_objset_hold(name, FTAG, &os)) != 0)
+		return (error);
+
+	if (dmu_objset_type(os) == DMU_OST_ZVOL) {
+		dsl_dataset_long_hold(os->os_dsl_dataset, FTAG);
+		dsl_pool_rele(dmu_objset_pool(os), FTAG);
+
+		if ((error = zvol_create_minor(name)) == 0)
+			error = zvol_create_snapshots(os, name);
+
+		dsl_dataset_long_rele(os->os_dsl_dataset, FTAG);
+		dsl_dataset_rele(os->os_dsl_dataset, FTAG);
+		return (error);
+	}
+
+	if (dmu_objset_type(os) != DMU_OST_ZFS) {
+		dmu_objset_rele(os, FTAG);
+		return (0);
+	}
+
+	osname = kmem_alloc(MAXPATHLEN, KM_SLEEP);
+	if (snprintf(osname, MAXPATHLEN, "%s/", name) >= MAXPATHLEN) {
+		dmu_objset_rele(os, FTAG);
+		kmem_free(osname, MAXPATHLEN);
+		return (ENOENT);
+	}
+
+	p = osname + strlen(osname);
+	len = MAXPATHLEN - (p - osname);
+
+	cookie = 0;
+	while (dmu_dir_list_next(os, MAXPATHLEN - (p - osname), p, NULL,
+	    &cookie) == 0) {
+		dmu_objset_rele(os, FTAG);
+		(void) zvol_create_minors(osname);
+		if ((error = dmu_objset_hold(name, FTAG, &os)) != 0)
+			return (error);
+	}
+
+	dmu_objset_rele(os, FTAG);
+	kmem_free(osname, MAXPATHLEN);
+
+	return (0);
 }
 
 /*
@@ -1555,8 +1621,47 @@ zvol_remove_minors(const char *pool)
 	kmem_free(str, MAXNAMELEN);
 }
 
+void
+zvol_rename_minors(const char *oldname, const char *newname)
+{
+	zvol_state_t *zv;
+	size_t oldnamelen, newnamelen;
+	char *name;
+
+	if (zvol_inhibit_dev)
+		return;
+
+	oldnamelen = strlen(oldname);
+	newnamelen = strlen(newname);
+	name = kmem_alloc(MAXPATHLEN, KM_PUSHPAGE);
+
+	mutex_enter(&spa_namespace_lock);
+	mutex_enter(&zvol_state_lock);
+
+	for (zv = list_head(&zvol_state_list); zv != NULL;
+	     zv = list_next(&zvol_state_list, zv)) {
+
+		if (strcmp(zv->zv_name, oldname) == 0) {
+			__zvol_rename_minor(zv, newname);
+		} else if (strncmp(zv->zv_name, oldname, oldnamelen) == 0 &&
+		    (zv->zv_name[oldnamelen] == '/' ||
+		     zv->zv_name[oldnamelen] == '@')) {
+			snprintf(name, sizeof(name), "%s%c%s", newname,
+			    zv->zv_name[oldnamelen],
+			    zv->zv_name + oldnamelen + 1);
+			__zvol_rename_minor(zv, name);
+		}
+	}
+
+	mutex_exit(&zvol_state_lock);
+	mutex_exit(&spa_namespace_lock);
+
+	kmem_free(name, MAXPATHLEN);
+}
+
 static int
-snapdev_snapshot_changed_cb(const char *dsname, void *arg) {
+snapdev_snapshot_changed_cb(const char *dsname, void *arg)
+{
 	uint64_t snapdev = *(uint64_t *) arg;
 
 	if (strchr(dsname, '@') == NULL)
@@ -1576,7 +1681,11 @@ snapdev_snapshot_changed_cb(const char *dsname, void *arg) {
 }
 
 int
-zvol_set_snapdev(const char *dsname, uint64_t snapdev) {
+zvol_set_snapdev(const char *dsname, uint64_t snapdev)
+{
+	/*
+	 * FIXME: We can't safely use dmu_objset_find() for this.
+	 */
 	(void) dmu_objset_find((char *) dsname, snapdev_snapshot_changed_cb,
 		&snapdev, DS_FIND_SNAPSHOTS | DS_FIND_CHILDREN);
 	/* caller should continue to modify snapdev property */

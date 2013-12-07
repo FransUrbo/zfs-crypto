@@ -2209,7 +2209,7 @@ zfs_ioc_objset_zplprops(zfs_cmd_t *zc)
 	return (err);
 }
 
-static boolean_t
+boolean_t
 dataset_name_hidden(const char *name)
 {
 	/*
@@ -2931,30 +2931,6 @@ zfs_ioc_pool_get_props(zfs_cmd_t *zc)
 
 /*
  * inputs:
- * zc_name              name of volume
- *
- * outputs:             none
- */
-static int
-zfs_ioc_create_minor(zfs_cmd_t *zc)
-{
-	return (zvol_create_minor(zc->zc_name));
-}
-
-/*
- * inputs:
- * zc_name              name of volume
- *
- * outputs:             none
- */
-static int
-zfs_ioc_remove_minor(zfs_cmd_t *zc)
-{
-	return (zvol_remove_minor(zc->zc_name));
-}
-
-/*
- * inputs:
  * zc_name		name of filesystem
  * zc_nvlist_src{_size}	nvlist of delegated permissions
  * zc_perm_action	allow/unallow flag
@@ -3307,74 +3283,80 @@ zfs_ioc_create(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 
 	zct.zct_props = nvprops;
 
-    if (cbfunc == NULL)
-        return (EINVAL);
+	if (cbfunc == NULL)
+		return (SET_ERROR(EINVAL));
 
 	if (nvlist_lookup_byte_array(innvl, "crypto_ctx", (uchar_t **)&zic,
                                  &size) != 0)
 		return (EINVAL);
 
-    if ((size != sizeof(*zic)) ||
-        (error = zfs_get_crypto_ctx((char *)fsname, zic, &dcc)) != 0) {
-        return (error);
-    }
+	if ((size != sizeof(*zic)) ||
+	    (error = zfs_get_crypto_ctx((char *)fsname, zic, &dcc)) != 0) {
+		return (error);
+	}
 
-    if (type == DMU_OST_ZVOL) {
-        uint64_t volsize, volblocksize;
+	if (type == DMU_OST_ZVOL) {
+		uint64_t volsize, volblocksize;
 
-        if (nvprops == NULL)
-            return (EINVAL);
-        if (nvlist_lookup_uint64(nvprops,
-                    zfs_prop_to_name(ZFS_PROP_VOLSIZE), &volsize) != 0)
-            return (EINVAL);
+		if (nvprops == NULL)
+			return (SET_ERROR(EINVAL));
+		if (nvlist_lookup_uint64(nvprops,
+		    zfs_prop_to_name(ZFS_PROP_VOLSIZE), &volsize) != 0)
+			return (SET_ERROR(EINVAL));
 
-        if ((error = nvlist_lookup_uint64(nvprops,
-                    zfs_prop_to_name(ZFS_PROP_VOLBLOCKSIZE),
-                           &volblocksize)) != 0 && error != ENOENT)
-            return (EINVAL);
+		if ((error = nvlist_lookup_uint64(nvprops,
+		    zfs_prop_to_name(ZFS_PROP_VOLBLOCKSIZE),
+		    &volblocksize)) != 0 && error != ENOENT)
+			return (SET_ERROR(EINVAL));
 
-        if (error != 0)
-            volblocksize = zfs_prop_default_numeric(
-                                                    ZFS_PROP_VOLBLOCKSIZE);
+		if (error != 0)
+			volblocksize = zfs_prop_default_numeric(
+			    ZFS_PROP_VOLBLOCKSIZE);
 
-        if ((error = zvol_check_volblocksize(
-                                             volblocksize)) != 0 ||
-            (error = zvol_check_volsize(volsize,
-                                        volblocksize)) != 0)
-            return (error);
-    } else if (type == DMU_OST_ZFS) {
-        int error;
+		if ((error = zvol_check_volblocksize(
+		    volblocksize)) != 0 ||
+		    (error = zvol_check_volsize(volsize,
+		    volblocksize)) != 0)
+			return (error);
+	} else if (type == DMU_OST_ZFS) {
+		int error;
 
-        /*
-         * We have to have normalization and
-         * case-folding flags correct when we do the
-         * file system creation, so go figure them out
-         * now.
-         */
-        VERIFY(nvlist_alloc(&zct.zct_zplprops,
-                            NV_UNIQUE_NAME, KM_SLEEP) == 0);
-        error = zfs_fill_zplprops(fsname, nvprops,
-                                  zct.zct_zplprops, &is_insensitive);
-        if (error != 0) {
-            nvlist_free(zct.zct_zplprops);
-            return (error);
-        }
-    }
+		/*
+		 * We have to have normalization and
+		 * case-folding flags correct when we do the
+		 * file system creation, so go figure them out
+		 * now.
+		 */
+		VERIFY(nvlist_alloc(&zct.zct_zplprops,
+		    NV_UNIQUE_NAME, KM_SLEEP) == 0);
+		error = zfs_fill_zplprops(fsname, nvprops,
+		    zct.zct_zplprops, &is_insensitive);
+		if (error != 0) {
+			nvlist_free(zct.zct_zplprops);
+			return (error);
+		}
+	}
 
-    error = dmu_objset_create(fsname, type,
-             is_insensitive ? DS_FLAG_CI_DATASET : 0, &dcc, cbfunc, &zct);
-    nvlist_free(zct.zct_zplprops);
+	error = dmu_objset_create(fsname, type,
+	  is_insensitive ? DS_FLAG_CI_DATASET : 0, &dcc, cbfunc, &zct);
+	nvlist_free(zct.zct_zplprops);
 
-    /*
-     * It would be nice to do this atomically.
-     */
-    if (error == 0) {
-        error = zfs_set_prop_nvlist(fsname, ZPROP_SRC_LOCAL,
-                                    nvprops, outnvl);
-        if (error != 0)
-            (void) dsl_destroy_head(fsname);
-    }
-    return (error);
+	/*
+	 * It would be nice to do this atomically.
+	 */
+	if (error == 0) {
+		error = zfs_set_prop_nvlist(fsname, ZPROP_SRC_LOCAL,
+		    nvprops, outnvl);
+		if (error != 0)
+			(void) dsl_destroy_head(fsname);
+	}
+
+#ifdef _KERNEL
+	if (error == 0 && type == DMU_OST_ZVOL)
+		zvol_create_minors(fsname);
+#endif
+
+	return (error);
 }
 
 /*
@@ -3640,10 +3622,10 @@ zfs_ioc_destroy_snaps(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)
 		    (name[poollen] != '/' && name[poollen] != '@'))
 			return (SET_ERROR(EXDEV));
 
-		(void) zvol_remove_minor(name);
 		error = zfs_unmount_snap(name);
 		if (error != 0)
 			return (error);
+		(void) zvol_remove_minor(name);
 	}
 
 	return (dsl_destroy_snapshots_nvl(snaps, defer, outnvl));
@@ -3733,7 +3715,6 @@ zfs_ioc_rename(zfs_cmd_t *zc)
 {
 	boolean_t recursive = zc->zc_cookie & 1;
 	char *at;
-	int err;
 
 	zc->zc_value[sizeof (zc->zc_value) - 1] = '\0';
 	if (dataset_namecheck(zc->zc_value, NULL, NULL) != 0 ||
@@ -3763,12 +3744,7 @@ zfs_ioc_rename(zfs_cmd_t *zc)
 
 		return (error);
 	} else {
-		err = dsl_dir_rename(zc->zc_name, zc->zc_value);
-		if (!err && zc->zc_objset_type == DMU_OST_ZVOL) {
-			(void) zvol_remove_minor(zc->zc_name);
-			(void) zvol_create_minor(zc->zc_value);
-		}
-		return (err);
+		return (dsl_dir_rename(zc->zc_name, zc->zc_value));
 	}
 }
 
@@ -6114,12 +6090,8 @@ zfs_ioctl_init(void)
 	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY);
 
 	/*
- 	 * ZoL functions
+	 * ZoL functions
 	 */
-	zfs_ioctl_register_legacy(ZFS_IOC_CREATE_MINOR, zfs_ioc_create_minor,
-	    zfs_secpolicy_config, DATASET_NAME, B_FALSE, POOL_CHECK_NONE);
-	zfs_ioctl_register_legacy(ZFS_IOC_REMOVE_MINOR, zfs_ioc_remove_minor,
-	    zfs_secpolicy_config, DATASET_NAME, B_FALSE, POOL_CHECK_NONE);
 	zfs_ioctl_register_legacy(ZFS_IOC_EVENTS_NEXT, zfs_ioc_events_next,
 	    zfs_secpolicy_config, NO_NAME, B_FALSE, POOL_CHECK_NONE);
 	zfs_ioctl_register_legacy(ZFS_IOC_EVENTS_CLEAR, zfs_ioc_events_clear,
