@@ -3411,6 +3411,12 @@ zfs_ioc_clone(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 		if (error != 0)
 			(void) dsl_destroy_head(fsname);
 	}
+
+#ifdef _KERNEL
+	if (error == 0)
+		zvol_create_minors(fsname);
+#endif
+
 	return (error);
 }
 
@@ -3471,6 +3477,12 @@ zfs_ioc_snapshot(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)
 	}
 
 	error = dsl_dataset_snapshot(snaps, props, outnvl);
+
+#ifdef _KERNEL
+	if (error == 0)
+		zvol_create_minors(poolname);
+#endif
+
 	return (error);
 }
 
@@ -4557,6 +4569,12 @@ zfs_ioc_recv(zfs_cmd_t *zc)
 		error = 1;
 	}
 #endif
+
+#ifdef _KERNEL
+	if (error == 0)
+		zvol_create_minors(tofs);
+#endif
+
 	/*
 	 * On error, restore the original props.
 	 */
@@ -6284,6 +6302,13 @@ zfsdev_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 	if (vecnum >= sizeof (zfs_ioc_vec) / sizeof (zfs_ioc_vec[0]))
 		return (-SET_ERROR(EINVAL));
 	vec = &zfs_ioc_vec[vecnum];
+
+	/*
+	 * The registered ioctl list may be sparse, verify that either
+	 * a normal or legacy handler are registered.
+	 */
+	if (vec->zvec_func == NULL && vec->zvec_legacy_func == NULL)
+		return (-SET_ERROR(EINVAL));
 
 	zc = kmem_zalloc(sizeof (zfs_cmd_t), KM_SLEEP | KM_NODEBUG);
 	saved_poolname = kmem_alloc(MAXNAMELEN, KM_SLEEP);
