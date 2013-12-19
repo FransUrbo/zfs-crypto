@@ -7,12 +7,11 @@
 %global _dracutdir  %{_prefix}/lib/dracut
 %else
 %global _udevdir    /lib/udev
-%global _dracutdir  /lib/dracut
+%global _dracutdir  %{_prefix}/share/dracut
 %endif
 
 %bcond_with    debug
 %bcond_with    blkid
-%bcond_with    selinux
 
 Name:           @PACKAGE@
 Version:        @VERSION@
@@ -39,9 +38,6 @@ BuildRequires:  zlib-devel
 BuildRequires:  libuuid-devel
 %if %{with blkid}
 BuildRequires:  libblkid-devel
-%endif
-%if %{with selinux}
-BuildRequires:  libselinux-devel
 %endif
 %endif
 
@@ -90,11 +86,6 @@ image which is ZFS aware.
     %define blkid --with-blkid
 %else
     %define blkid --without-blkid
-%endif
-%if %{with selinux}
-    %define selinux --with-selinux
-%else
-    %define selinux --without-selinux
 %endif
 
 %setup -q %{module}-%{version}.tar.gz -n %{module}-%{version}

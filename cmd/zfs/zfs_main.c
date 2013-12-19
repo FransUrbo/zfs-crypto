@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland.  All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
@@ -2152,7 +2152,7 @@ static int us_type_bits[] = {
 	USTYPE_SMB_USR,
 	USTYPE_ALL
 };
-static char *us_type_names[] = { "posixgroup", "posxiuser", "smbgroup",
+static char *us_type_names[] = { "posixgroup", "posixuser", "smbgroup",
 	"smbuser", "all" };
 
 typedef struct us_node {
@@ -2900,13 +2900,13 @@ print_dataset(zfs_handle_t *zhp, list_cbdata_t *cb)
 
 		if (pl->pl_prop == ZFS_PROP_NAME) {
 			(void) strlcpy(property, zfs_get_name(zhp),
-			    sizeof(property));
+			    sizeof (property));
 			propstr = property;
 			right_justify = zfs_prop_align_right(pl->pl_prop);
 		} else if (pl->pl_prop != ZPROP_INVAL) {
 			if (zfs_prop_get(zhp, pl->pl_prop, property,
 			    sizeof (property), NULL, NULL, 0,
-                            cb->cb_literal) != 0)
+			    cb->cb_literal) != 0)
 				propstr = "-";
 			else
 				propstr = property;

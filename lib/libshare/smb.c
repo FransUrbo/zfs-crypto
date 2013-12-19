@@ -26,7 +26,7 @@
  *
  * This is an addition to the zfs device driver to add, modify and remove SMB
  * shares using the 'net share' command that comes with Samba.
-
+ *
  * TESTING
  * Make sure that samba listens to 'localhost' (127.0.0.1) and
  * that the option 'registry shares' is set to 'yes'.
@@ -184,7 +184,7 @@ smb_retrieve_share_info(char *share_name)
 	return share;
 }
 
-/**
+/*
  * Retrieve the list of SMB shares.
  */
 static int
@@ -401,10 +401,10 @@ smb_get_shareopts(sa_share_impl_t impl_share, const char *shareopts,
 		*opts = NULL;
 	}
 
-	return rc;
+	return (rc);
 }
 
-/**
+/*
  * Used internally by smb_enable_share to enable sharing for a single host.
  */
 static int
@@ -467,7 +467,7 @@ smb_enable_share_one(sa_share_impl_t impl_share)
 
 	rc = libzfs_run_process(argv[0], argv, STDERR_VERBOSE);
 	if (rc < 0)
-		return SA_SYSTEM_ERR;
+		return (SA_SYSTEM_ERR);
 
 	/* ====== */
 	/* PART 2 - Run local update script. */
@@ -487,7 +487,7 @@ smb_enable_share_one(sa_share_impl_t impl_share)
 	return SA_OK;
 }
 
-/**
+/*
  * Enables SMB sharing for the specified share.
  */
 static int
@@ -496,20 +496,20 @@ smb_enable_share(sa_share_impl_t impl_share)
 	char *shareopts;
 
 	if (!smb_available())
-		return SA_SYSTEM_ERR;
+		return (SA_SYSTEM_ERR);
 
 	shareopts = FSINFO(impl_share, smb_fstype)->shareopts;
 	if (shareopts == NULL) /* on/off */
-		return SA_SYSTEM_ERR;
+		return (SA_SYSTEM_ERR);
 
 	if (strcmp(shareopts, "off") == 0)
-		return SA_OK;
+		return (SA_OK);
 
 	/* Magic: Enable (i.e., 'create new') share */
 	return smb_enable_share_one(impl_share);
 }
 
-/**
+/*
  * Used internally by smb_disable_share to disable sharing for a single host.
  */
 static int
@@ -520,7 +520,7 @@ smb_disable_share_one(const char *sharename)
 
 	/* CMD: net -S NET_CMD_ARG_HOST conf delshare Test1 */
 	argv[0] = NET_CMD_PATH;
-	argv[1] = (char*)"-S";
+	argv[1] = (char *)"-S";
 	argv[2] = NET_CMD_ARG_HOST;
 	argv[3] = (char*)"conf";
 	argv[4] = (char*)"delshare";
@@ -537,12 +537,12 @@ smb_disable_share_one(const char *sharename)
 
 	rc = libzfs_run_process(argv[0], argv, STDERR_VERBOSE);
 	if (rc < 0)
-		return SA_SYSTEM_ERR;
+		return (SA_SYSTEM_ERR);
 	else
-		return SA_OK;
+		return (SA_OK);
 }
 
-/**
+/*
  * Disables SMB sharing for the specified share.
  */
 static int
@@ -553,7 +553,7 @@ smb_disable_share(sa_share_impl_t impl_share)
 		 * The share can't possibly be active, so nothing
 		 * needs to be done to disable it.
 		 */
-		return SA_OK;
+		return (SA_OK);
 	}
 
 	/* Retrieve the list of (possible) active shares */
@@ -565,10 +565,10 @@ smb_disable_share(sa_share_impl_t impl_share)
 		smb_shares = smb_shares->next;
 	}
 
-	return SA_OK;
+	return (SA_OK);
 }
 
-/**
+/*
  * Checks whether the specified SMB share options are syntactically correct.
  */
 static int
@@ -579,14 +579,14 @@ smb_validate_shareopts(const char *shareopts)
 	return smb_get_shareopts(NULL, shareopts, &opts);
 }
 
-/**
+/*
  * Checks whether a share is currently active.
  */
 static boolean_t
 smb_is_share_active(sa_share_impl_t impl_share)
 {
 	if (!smb_available())
-		return B_FALSE;
+		return (B_FALSE);
 
 	/* Retrieve the list of (possible) active shares */
 	smb_retrieve_shares();
@@ -605,10 +605,10 @@ smb_is_share_active(sa_share_impl_t impl_share)
 		smb_shares = smb_shares->next;
 	}
 
-	return B_FALSE;
+	return (B_FALSE);
 }
 
-/**
+/*
  * Called to update a share's options. A share's options might be out of
  * date if the share was loaded from disk and the "sharesmb" dataset
  * property has changed in the meantime. This function also takes care
@@ -639,7 +639,7 @@ smb_update_shareopts(sa_share_impl_t impl_share, const char *resource,
 	shareopts_dup = strdup(shareopts);
 
 	if (shareopts_dup == NULL)
-		return SA_NO_MEMORY;
+		return (SA_NO_MEMORY);
 
 	if (old_shareopts != NULL)
 		free(old_shareopts);
@@ -649,10 +649,10 @@ smb_update_shareopts(sa_share_impl_t impl_share, const char *resource,
 	if (needs_reshare)
 		smb_enable_share(impl_share);
 
-	return SA_OK;
+	return (SA_OK);
 }
 
-/**
+/*
  * Clears a share's SMB options. Used by libshare to
  * clean up shares that are about to be free()'d.
  */
@@ -697,10 +697,10 @@ smb_available(void)
 	if (rc == 255)
 		return B_FALSE;
 
-	return B_TRUE;
+	return (B_TRUE);
 }
 
-/**
+/*
  * Initializes the SMB functionality of libshare.
  */
 void

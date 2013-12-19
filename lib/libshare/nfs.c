@@ -54,7 +54,7 @@ typedef struct nfs_host_cookie_s {
 	const char *security;
 } nfs_host_cookie_t;
 
-/**
+/*
  * Helper function for foreach_nfs_host. This function checks whether the
  * current share option is a host specification and invokes a callback
  * function with information about the host.
@@ -83,7 +83,7 @@ foreach_nfs_host_cb(const char *opt, const char *value, void *pcookie)
 		host_dup = strdup(value);
 
 		if (host_dup == NULL)
-			return SA_NO_MEMORY;
+			return (SA_NO_MEMORY);
 
 		host = host_dup;
 
@@ -100,7 +100,7 @@ foreach_nfs_host_cb(const char *opt, const char *value, void *pcookie)
 			if (rc != SA_OK) {
 				free(host_dup);
 
-				return rc;
+				return (rc);
 			}
 
 			host = next;
@@ -109,10 +109,10 @@ foreach_nfs_host_cb(const char *opt, const char *value, void *pcookie)
 		free(host_dup);
 	}
 
-	return SA_OK;
+	return (SA_OK);
 }
 
-/**
+/*
  * Invokes a callback function for all NFS hosts that are set for a share.
  */
 static int
@@ -133,7 +133,7 @@ foreach_nfs_host(sa_share_impl_t impl_share, nfs_host_callback_t callback,
 	    &udata);
 }
 
-/**
+/*
  * Converts a Solaris NFS host specification to its Linux equivalent.
  */
 static int
@@ -154,13 +154,13 @@ get_linux_hostspec(const char *solaris_hostspec, char **plinux_hostspec)
 	}
 
 	if (*plinux_hostspec == NULL) {
-		return SA_NO_MEMORY;
+		return (SA_NO_MEMORY);
 	}
 
-	return SA_OK;
+	return (SA_OK);
 }
 
-/**
+/*
  * Used internally by nfs_enable_share to enable sharing for a single host.
  */
 static int
@@ -218,12 +218,12 @@ nfs_enable_share_one(const char *sharepath, const char *host,
 	free(opts);
 
 	if (rc < 0)
-		return SA_SYSTEM_ERR;
+		return (SA_SYSTEM_ERR);
 	else
-		return SA_OK;
+		return (SA_OK);
 }
 
-/**
+/*
  * Adds a Linux share option to an array of NFS options.
  */
 static int
@@ -239,7 +239,7 @@ add_linux_shareopt(char **plinux_opts, const char *key, const char *value)
 	    (value ? 1 + strlen(value) : 0) + 1);
 
 	if (new_linux_opts == NULL)
-		return SA_NO_MEMORY;
+		return (SA_NO_MEMORY);
 
 	new_linux_opts[len] = '\0';
 
@@ -255,10 +255,10 @@ add_linux_shareopt(char **plinux_opts, const char *key, const char *value)
 
 	*plinux_opts = new_linux_opts;
 
-	return SA_OK;
+	return (SA_OK);
 }
 
-/**
+/*
  * Validates and converts a single Solaris share option to its Linux
  * equivalent.
  */
@@ -270,15 +270,15 @@ get_linux_shareopts_cb(const char *key, const char *value, void *cookie)
 	/* host-specific options, these are taken care of elsewhere */
 	if (strcmp(key, "ro") == 0 || strcmp(key, "rw") == 0 ||
 	    strcmp(key, "sec") == 0)
-		return SA_OK;
+		return (SA_OK);
 
 	if (strcmp(key, "anon") == 0)
 		key = "anonuid";
 
-	 if (strcmp(key, "root_mapping") == 0) {
-		 (void) add_linux_shareopt(plinux_opts, "root_squash", NULL);
-		 key = "anonuid";
-	 }
+	if (strcmp(key, "root_mapping") == 0) {
+		(void) add_linux_shareopt(plinux_opts, "root_squash", NULL);
+		key = "anonuid";
+	}
 
 	if (strcmp(key, "nosub") == 0)
 		key = "subtree_check";
@@ -301,15 +301,15 @@ get_linux_shareopts_cb(const char *key, const char *value, void *cookie)
 	    strcmp(key, "all_squash") != 0 &&
 	    strcmp(key, "no_all_squash") != 0 && strcmp(key, "fsid") != 0 &&
 	    strcmp(key, "anonuid") != 0 && strcmp(key, "anongid") != 0) {
-		return SA_SYNTAX_ERR;
+		return (SA_SYNTAX_ERR);
 	}
 
 	(void) add_linux_shareopt(plinux_opts, key, value);
 
-	return SA_OK;
+	return (SA_OK);
 }
 
-/**
+/*
  * Takes a string containing Solaris share options (e.g. "sync,no_acl") and
  * converts them to a NULL-terminated array of Linux NFS options.
  */
@@ -334,10 +334,10 @@ get_linux_shareopts(const char *shareopts, char **plinux_opts)
 		*plinux_opts = NULL;
 	}
 
-	return rc;
+	return (rc);
 }
 
-/**
+/*
  * Enables NFS sharing for the specified share.
  */
 static int
@@ -347,27 +347,27 @@ nfs_enable_share(sa_share_impl_t impl_share)
 	int rc;
 
 	if (!nfs_available()) {
-		return SA_SYSTEM_ERR;
+		return (SA_SYSTEM_ERR);
 	}
 
 	shareopts = FSINFO(impl_share, nfs_fstype)->shareopts;
 
 	if (shareopts == NULL)
-		return SA_OK;
+		return (SA_OK);
 
 	rc = get_linux_shareopts(shareopts, &linux_opts);
 
 	if (rc != SA_OK)
-		return rc;
+		return (rc);
 
 	rc = foreach_nfs_host(impl_share, nfs_enable_share_one, linux_opts);
 
 	free(linux_opts);
 
-	return rc;
+	return (rc);
 }
 
-/**
+/*
  * Used internally by nfs_disable_share to disable sharing for a single host.
  */
 static int
@@ -408,12 +408,12 @@ nfs_disable_share_one(const char *sharepath, const char *host,
 	free(hostpath);
 
 	if (rc < 0)
-		return SA_SYSTEM_ERR;
+		return (SA_SYSTEM_ERR);
 	else
-		return SA_OK;
+		return (SA_OK);
 }
 
-/**
+/*
  * Disables NFS sharing for the specified share.
  */
 static int
@@ -424,13 +424,13 @@ nfs_disable_share(sa_share_impl_t impl_share)
 		 * The share can't possibly be active, so nothing
 		 * needs to be done to disable it.
 		 */
-		return SA_OK;
+		return (SA_OK);
 	}
 
-	return foreach_nfs_host(impl_share, nfs_disable_share_one, NULL);
+	return (foreach_nfs_host(impl_share, nfs_disable_share_one, NULL));
 }
 
-/**
+/*
  * Checks whether the specified NFS share options are syntactically correct.
  */
 static int
@@ -442,14 +442,14 @@ nfs_validate_shareopts(const char *shareopts)
 	rc = get_linux_shareopts(shareopts, &linux_opts);
 
 	if (rc != SA_OK)
-		return rc;
+		return (rc);
 
 	free(linux_opts);
 
-	return SA_OK;
+	return (SA_OK);
 }
 
-/**
+/*
  * Checks whether a share is currently active.
  */
 static boolean_t
@@ -460,17 +460,17 @@ nfs_is_share_active(sa_share_impl_t impl_share)
 	FILE *nfs_exportfs_temp_fp;
 
 	if (!nfs_available())
-		return B_FALSE;
+		return (B_FALSE);
 
 	nfs_exportfs_temp_fp = fdopen(dup(nfs_exportfs_temp_fd), "r");
 
 	if (nfs_exportfs_temp_fp == NULL ||
 	    fseek(nfs_exportfs_temp_fp, 0, SEEK_SET) < 0) {
 		fclose(nfs_exportfs_temp_fp);
-		return B_FALSE;
+		return (B_FALSE);
 	}
 
-	while (fgets(line, sizeof(line), nfs_exportfs_temp_fp) != NULL) {
+	while (fgets(line, sizeof (line), nfs_exportfs_temp_fp) != NULL) {
 		/*
 		 * exportfs uses separate lines for the share path
 		 * and the export options when the share path is longer
@@ -501,16 +501,16 @@ nfs_is_share_active(sa_share_impl_t impl_share)
 
 		if (strcmp(line, impl_share->sharepath) == 0) {
 			fclose(nfs_exportfs_temp_fp);
-			return B_TRUE;
+			return (B_TRUE);
 		}
 	}
 
 	fclose(nfs_exportfs_temp_fp);
 
-	return B_FALSE;
+	return (B_FALSE);
 }
 
-/**
+/*
  * Called to update a share's options. A share's options might be out of
  * date if the share was loaded from disk (i.e. /etc/dfs/sharetab) and the
  * "sharenfs" dataset property has changed in the meantime. This function
@@ -541,7 +541,7 @@ nfs_update_shareopts(sa_share_impl_t impl_share, const char *resource,
 	shareopts_dup = strdup(shareopts);
 
 	if (shareopts_dup == NULL)
-		return SA_NO_MEMORY;
+		return (SA_NO_MEMORY);
 
 	if (old_shareopts != NULL)
 		free(old_shareopts);
@@ -551,10 +551,10 @@ nfs_update_shareopts(sa_share_impl_t impl_share, const char *resource,
 	if (needs_reshare)
 		nfs_enable_share(impl_share);
 
-	return SA_OK;
+	return (SA_OK);
 }
 
-/**
+/*
  * Clears a share's NFS options. Used by libshare to
  * clean up shares that are about to be free()'d.
  */
@@ -603,7 +603,7 @@ nfs_check_exportfs(void)
 	nfs_exportfs_temp_fd = mkstemp(nfs_exportfs_tempfile);
 
 	if (nfs_exportfs_temp_fd < 0)
-		return SA_SYSTEM_ERR;
+		return (SA_SYSTEM_ERR);
 
 	unlink(nfs_exportfs_tempfile);
 
@@ -614,26 +614,25 @@ nfs_check_exportfs(void)
 	if (pid < 0) {
 		(void) close(nfs_exportfs_temp_fd);
 		nfs_exportfs_temp_fd = -1;
-		return SA_SYSTEM_ERR;
+		return (SA_SYSTEM_ERR);
 	}
 
 	if (pid > 0) {
-		while ((rc = waitpid(pid, &status, 0)) <= 0 && errno == EINTR)
-			; /* empty loop body */
+		while ((rc = waitpid(pid, &status, 0)) <= 0 && errno == EINTR);
 
 		if (rc <= 0) {
 			(void) close(nfs_exportfs_temp_fd);
 			nfs_exportfs_temp_fd = -1;
-			return SA_SYSTEM_ERR;
+			return (SA_SYSTEM_ERR);
 		}
 
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 			(void) close(nfs_exportfs_temp_fd);
 			nfs_exportfs_temp_fd = -1;
-			return SA_CONFIG_ERR;
+			return (SA_CONFIG_ERR);
 		}
 
-		return SA_OK;
+		return (SA_OK);
 	}
 
 	/* child */
@@ -661,10 +660,10 @@ nfs_available(void)
 	if (nfs_exportfs_temp_fd == -1)
 		(void) nfs_check_exportfs();
 
-	return (nfs_exportfs_temp_fd != -1) ? B_TRUE : B_FALSE;
+	return ((nfs_exportfs_temp_fd != -1) ? B_TRUE : B_FALSE);
 }
 
-/**
+/*
  * Initializes the NFS functionality of libshare.
  */
 void

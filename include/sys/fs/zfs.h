@@ -149,6 +149,10 @@ typedef enum {
 	ZFS_PROP_SNAPDEV,
 	ZFS_PROP_ACLTYPE,
 	ZFS_PROP_SHAREISCSI,
+	ZFS_PROP_SELINUX_CONTEXT,
+	ZFS_PROP_SELINUX_FSCONTEXT,
+	ZFS_PROP_SELINUX_DEFCONTEXT,
+	ZFS_PROP_SELINUX_ROOTCONTEXT,
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 
@@ -874,7 +878,7 @@ typedef enum zfs_ioc {
 /*
  * zvol ioctl to get dataset name
  */
-#define BLKZNAME		_IOR(0x12,125,char[ZFS_MAXNAMELEN])
+#define	BLKZNAME		_IOR(0x12, 125, char[ZFS_MAXNAMELEN])
 
 /*
  * Internal SPA load state.  Used by FMA diagnosis engine.

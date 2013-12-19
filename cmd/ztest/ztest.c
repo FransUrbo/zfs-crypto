@@ -3685,7 +3685,7 @@ out:
 }
 
 #undef OD_ARRAY_SIZE
-#define OD_ARRAY_SIZE	4
+#define	OD_ARRAY_SIZE	4
 
 /*
  * Verify that dmu_object_{alloc,free} work as expected.
@@ -3698,7 +3698,7 @@ ztest_dmu_object_alloc_free(ztest_ds_t *zd, uint64_t id)
 	int size;
 	int b;
 
-	size = sizeof(ztest_od_t) * OD_ARRAY_SIZE;
+	size = sizeof (ztest_od_t) * OD_ARRAY_SIZE;
 	od = umem_alloc(size, UMEM_NOFAIL);
 	batchsize = OD_ARRAY_SIZE;
 
@@ -3720,7 +3720,7 @@ ztest_dmu_object_alloc_free(ztest_ds_t *zd, uint64_t id)
 }
 
 #undef OD_ARRAY_SIZE
-#define OD_ARRAY_SIZE	2
+#define	OD_ARRAY_SIZE	2
 
 /*
  * Verify that dmu_{read,write} work as expected.
@@ -3732,7 +3732,7 @@ ztest_dmu_read_write(ztest_ds_t *zd, uint64_t id)
 	ztest_od_t *od;
 
 	objset_t *os = zd->zd_os;
-	size = sizeof(ztest_od_t) * OD_ARRAY_SIZE;
+	size = sizeof (ztest_od_t) * OD_ARRAY_SIZE;
 	od = umem_alloc(size, UMEM_NOFAIL);
 	dmu_tx_t *tx;
 	int i, freeit, error;
@@ -4005,7 +4005,7 @@ compare_and_update_pbbufs(uint64_t s, bufwad_t *packbuf, bufwad_t *bigbuf,
 }
 
 #undef OD_ARRAY_SIZE
-#define OD_ARRAY_SIZE	2
+#define	OD_ARRAY_SIZE	2
 
 void
 ztest_dmu_read_write_zcopy(ztest_ds_t *zd, uint64_t id)
@@ -4028,7 +4028,7 @@ ztest_dmu_read_write_zcopy(ztest_ds_t *zd, uint64_t id)
 	arc_buf_t **bigbuf_arcbufs;
 	dmu_object_info_t doi;
 
-	size = sizeof(ztest_od_t) * OD_ARRAY_SIZE;
+	size = sizeof (ztest_od_t) * OD_ARRAY_SIZE;
 	od = umem_alloc(size, UMEM_NOFAIL);
 
 	/*
@@ -4249,7 +4249,7 @@ ztest_dmu_write_parallel(ztest_ds_t *zd, uint64_t id)
 {
 	ztest_od_t *od;
 
-	od = umem_alloc(sizeof(ztest_od_t), UMEM_NOFAIL);
+	od = umem_alloc(sizeof (ztest_od_t), UMEM_NOFAIL);
 	uint64_t offset = (1ULL << (ztest_random(20) + 43)) +
 	    (ztest_random(ZTEST_RANGE_LOCKS) << SPA_MAXBLOCKSHIFT);
 
@@ -4266,7 +4266,7 @@ ztest_dmu_write_parallel(ztest_ds_t *zd, uint64_t id)
 	while (ztest_random(10) != 0)
 		ztest_io(zd, od->od_object, offset);
 
-	umem_free(od, sizeof(ztest_od_t));
+	umem_free(od, sizeof (ztest_od_t));
 }
 
 void
@@ -4279,17 +4279,18 @@ ztest_dmu_prealloc(ztest_ds_t *zd, uint64_t id)
 	uint64_t blocksize = ztest_random_blocksize();
 	void *data;
 
-	od = umem_alloc(sizeof(ztest_od_t), UMEM_NOFAIL);
+	od = umem_alloc(sizeof (ztest_od_t), UMEM_NOFAIL);
 
 	ztest_od_init(od, id, FTAG, 0, DMU_OT_UINT64_OTHER, blocksize, 0);
 
-	if (ztest_object_init(zd, od, sizeof (ztest_od_t), !ztest_random(2)) != 0) {
-		umem_free(od, sizeof(ztest_od_t));
+	if (ztest_object_init(zd, od, sizeof (ztest_od_t),
+	    !ztest_random(2)) != 0) {
+		umem_free(od, sizeof (ztest_od_t));
 		return;
 	}
 
 	if (ztest_truncate(zd, od->od_object, offset, count * blocksize) != 0) {
-		umem_free(od, sizeof(ztest_od_t));
+		umem_free(od, sizeof (ztest_od_t));
 		return;
 	}
 
@@ -4307,7 +4308,7 @@ ztest_dmu_prealloc(ztest_ds_t *zd, uint64_t id)
 	}
 
 	umem_free(data, blocksize);
-	umem_free(od, sizeof(ztest_od_t));
+	umem_free(od, sizeof (ztest_od_t));
 }
 
 /*
@@ -4332,7 +4333,7 @@ ztest_zap(ztest_ds_t *zd, uint64_t id)
 	int error;
 	char *hc[2] = { "s.acl.h", ".s.open.h.hyLZlg" };
 
-	od = umem_alloc(sizeof(ztest_od_t), UMEM_NOFAIL);
+	od = umem_alloc(sizeof (ztest_od_t), UMEM_NOFAIL);
 	ztest_od_init(od, id, FTAG, 0, DMU_OT_ZAP_OTHER, 0, 0);
 
 	if (ztest_object_init(zd, od, sizeof (ztest_od_t),
@@ -4455,7 +4456,7 @@ ztest_zap(ztest_ds_t *zd, uint64_t id)
 	VERIFY3U(0, ==, zap_remove(os, object, propname, tx));
 	dmu_tx_commit(tx);
 out:
-	umem_free(od, sizeof(ztest_od_t));
+	umem_free(od, sizeof (ztest_od_t));
 }
 
 /*
@@ -4469,7 +4470,7 @@ ztest_fzap(ztest_ds_t *zd, uint64_t id)
 	uint64_t object, txg;
 	int i;
 
-	od = umem_alloc(sizeof(ztest_od_t), UMEM_NOFAIL);
+	od = umem_alloc(sizeof (ztest_od_t), UMEM_NOFAIL);
 	ztest_od_init(od, id, FTAG, 0, DMU_OT_ZAP_OTHER, 0, 0);
 
 	if (ztest_object_init(zd, od, sizeof (ztest_od_t),
@@ -4502,7 +4503,7 @@ ztest_fzap(ztest_ds_t *zd, uint64_t id)
 		dmu_tx_commit(tx);
 	}
 out:
-	umem_free(od, sizeof(ztest_od_t));
+	umem_free(od, sizeof (ztest_od_t));
 }
 
 /* ARGSUSED */
@@ -4518,11 +4519,11 @@ ztest_zap_parallel(ztest_ds_t *zd, uint64_t id)
 	char name[20], string_value[20];
 	void *data;
 
-	od = umem_alloc(sizeof(ztest_od_t), UMEM_NOFAIL);
+	od = umem_alloc(sizeof (ztest_od_t), UMEM_NOFAIL);
 	ztest_od_init(od, ID_PARALLEL, FTAG, micro, DMU_OT_ZAP_OTHER, 0, 0);
 
 	if (ztest_object_init(zd, od, sizeof (ztest_od_t), B_FALSE) != 0) {
-		umem_free(od, sizeof(ztest_od_t));
+		umem_free(od, sizeof (ztest_od_t));
 		return;
 	}
 
@@ -4616,7 +4617,7 @@ ztest_zap_parallel(ztest_ds_t *zd, uint64_t id)
 	if (tx != NULL)
 		dmu_tx_commit(tx);
 
-	umem_free(od, sizeof(ztest_od_t));
+	umem_free(od, sizeof (ztest_od_t));
 }
 
 /*
@@ -4707,11 +4708,11 @@ ztest_dmu_commit_callbacks(ztest_ds_t *zd, uint64_t id)
 	uint64_t old_txg, txg;
 	int i, error = 0;
 
-	od = umem_alloc(sizeof(ztest_od_t), UMEM_NOFAIL);
+	od = umem_alloc(sizeof (ztest_od_t), UMEM_NOFAIL);
 	ztest_od_init(od, id, FTAG, 0, DMU_OT_UINT64_OTHER, 0, 0);
 
 	if (ztest_object_init(zd, od, sizeof (ztest_od_t), B_FALSE) != 0) {
-		umem_free(od, sizeof(ztest_od_t));
+		umem_free(od, sizeof (ztest_od_t));
 		return;
 	}
 
@@ -4754,7 +4755,7 @@ ztest_dmu_commit_callbacks(ztest_ds_t *zd, uint64_t id)
 			umem_free(cb_data[i], sizeof (ztest_cb_data_t));
 		}
 
-		umem_free(od, sizeof(ztest_od_t));
+		umem_free(od, sizeof (ztest_od_t));
 		return;
 	}
 
@@ -4826,7 +4827,7 @@ ztest_dmu_commit_callbacks(ztest_ds_t *zd, uint64_t id)
 
 	dmu_tx_commit(tx);
 
-	umem_free(od, sizeof(ztest_od_t));
+	umem_free(od, sizeof (ztest_od_t));
 }
 
 /* ARGSUSED */
@@ -4973,11 +4974,12 @@ ztest_dmu_snapshot_hold(ztest_ds_t *zd, uint64_t id)
 
 	dmu_objset_name(os, osname);
 
-	(void) snprintf(snapname, sizeof (snapname), "sh1_%llu", (long long unsigned int)id);
+	(void) snprintf(snapname, sizeof (snapname), "sh1_%llu",
+	    (u_longlong_t)id);
 	(void) snprintf(fullname, sizeof (fullname), "%s@%s", osname, snapname);
 	(void) snprintf(clonename, sizeof (clonename),
-	    "%s/ch1_%llu", osname, (long long unsigned int)id);
-	(void) snprintf(tag, sizeof (tag), "tag_%llu", (long long unsigned int)id);
+	    "%s/ch1_%llu", osname, (u_longlong_t)id);
+	(void) snprintf(tag, sizeof (tag), "tag_%llu", (u_longlong_t)id);
 
 	/*
 	 * Clean up from any previous run.
@@ -5322,11 +5324,11 @@ ztest_ddt_repair(ztest_ds_t *zd, uint64_t id)
 	blocksize = ztest_random_blocksize();
 	blocksize = MIN(blocksize, 2048);	/* because we write so many */
 
-	od = umem_alloc(sizeof(ztest_od_t), UMEM_NOFAIL);
+	od = umem_alloc(sizeof (ztest_od_t), UMEM_NOFAIL);
 	ztest_od_init(od, id, FTAG, 0, DMU_OT_UINT64_OTHER, blocksize, 0);
 
 	if (ztest_object_init(zd, od, sizeof (ztest_od_t), B_FALSE) != 0) {
-		umem_free(od, sizeof(ztest_od_t));
+		umem_free(od, sizeof (ztest_od_t));
 		return;
 	}
 
@@ -5341,7 +5343,7 @@ ztest_ddt_repair(ztest_ds_t *zd, uint64_t id)
 	    ztest_dsl_prop_set_uint64(zd->zd_name, ZFS_PROP_COPIES, 1,
 	    B_FALSE) != 0) {
 		(void) rw_exit(&ztest_name_lock);
-		umem_free(od, sizeof(ztest_od_t));
+		umem_free(od, sizeof (ztest_od_t));
 		return;
 	}
 
@@ -5356,7 +5358,7 @@ ztest_ddt_repair(ztest_ds_t *zd, uint64_t id)
 	txg = ztest_tx_assign(tx, TXG_WAIT, FTAG);
 	if (txg == 0) {
 		(void) rw_exit(&ztest_name_lock);
-		umem_free(od, sizeof(ztest_od_t));
+		umem_free(od, sizeof (ztest_od_t));
 		return;
 	}
 
@@ -5405,7 +5407,7 @@ ztest_ddt_repair(ztest_ds_t *zd, uint64_t id)
 	zio_buf_free(buf, psize);
 
 	(void) rw_exit(&ztest_name_lock);
-	umem_free(od, sizeof(ztest_od_t));
+	umem_free(od, sizeof (ztest_od_t));
 }
 
 /*
@@ -5691,7 +5693,7 @@ ztest_resume_thread(void *arg)
 	return (NULL);
 }
 
-#define GRACE	300
+#define	GRACE	300
 
 #if 0
 static void
