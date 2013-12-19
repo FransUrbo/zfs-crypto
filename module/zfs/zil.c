@@ -1074,7 +1074,7 @@ zil_lwb_write_start(zilog_t *zilog, lwb_t *lwb)
 	BP_ZERO(bp);
 	use_slog = USE_SLOG(zilog);
 	error = zio_alloc_zil(spa, txg, bp, zil_blksz,
-	    USE_SLOG(zilog));
+			      USE_SLOG(zilog), zilog->zl_os->os_crypt);
 	if (use_slog) {
 		ZIL_STAT_BUMP(zil_itx_metaslab_slog_count);
 		ZIL_STAT_INCR(zil_itx_metaslab_slog_bytes, lwb->lwb_nused);
