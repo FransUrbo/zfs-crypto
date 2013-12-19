@@ -505,7 +505,7 @@ extern int zil_set_crypto_data(char *src, size_t size,
     void *dest, iovec_t **srciovp, iovec_t **dstiovp, size_t *cdlen,
     boolean_t encrypting);
 
-extern int zil_replay_disable;
+extern boolean_t zil_replay_disable;
 
 #ifdef	__cplusplus
 }
