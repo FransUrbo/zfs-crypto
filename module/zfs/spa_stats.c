@@ -30,7 +30,7 @@ int zfs_read_history = 0;
 /*
  * Include cache hits in history, disabled by default.
  */
-boolean_t zfs_read_history_hits = B_FALSE;
+bool zfs_read_history_hits = B_FALSE;
 
 /*
  * Keeps stats on the last N txgs, disabled by default.

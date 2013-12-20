@@ -78,7 +78,7 @@
 
 int zfs_zevent_len_max = 0;
 int zfs_zevent_cols = 80;
-boolean_t zfs_zevent_console = B_FALSE;
+bool zfs_zevent_console = B_FALSE;
 
 static int zevent_len_cur = 0;
 static int zevent_waiters = 0;

@@ -64,8 +64,8 @@ int zfs_scan_idle = 50;			/* idle window in clock ticks */
 int zfs_scan_min_time_ms = 1000; /* min millisecs to scrub per txg */
 int zfs_free_min_time_ms = 1000; /* min millisecs to free per txg */
 int zfs_resilver_min_time_ms = 3000; /* min millisecs to resilver per txg */
-boolean_t zfs_no_scrub_io = B_FALSE; /* set to disable scrub i/o */
-boolean_t zfs_no_scrub_prefetch = B_FALSE; /* set to disable scrub prefetching */
+bool zfs_no_scrub_io = B_FALSE; /* set to disable scrub i/o */
+bool zfs_no_scrub_prefetch = B_FALSE; /* set to disable scrub prefetching */
 enum ddt_class zfs_scrub_ddt_class_max = DDT_CLASS_DUPLICATE;
 int dsl_scan_delay_completion = B_FALSE; /* set to delay scan completion */
 

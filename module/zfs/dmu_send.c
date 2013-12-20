@@ -54,7 +54,7 @@
 #include <sys/dsl_destroy.h>
 
 /* Set this tunable to TRUE to replace corrupt data with 0x2f5baddb10c */
-boolean_t zfs_send_corrupt_data = B_FALSE;
+bool zfs_send_corrupt_data = B_FALSE;
 
 static char *dmu_recv_tag = "dmu_recv_tag";
 static const char *recv_clone_name = "%recv";

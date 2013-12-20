@@ -49,7 +49,7 @@
 #include <sys/zvol.h>
 #include <linux/blkdev_compat.h>
 
-boolean_t zvol_inhibit_dev = B_FALSE;
+bool zvol_inhibit_dev = B_FALSE;
 unsigned int zvol_major = ZVOL_MAJOR;
 unsigned int zvol_threads = 32;
 unsigned long zvol_max_discard_blocks = 16384;

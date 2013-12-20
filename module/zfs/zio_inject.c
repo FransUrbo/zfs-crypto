@@ -47,7 +47,7 @@
 #include <sys/dmu_objset.h>
 #include <sys/fs/zfs.h>
 
-boolean_t zio_injection_enabled = B_FALSE;
+bool zio_injection_enabled = B_FALSE;
 
 typedef struct inject_handler {
 	int			zi_id;

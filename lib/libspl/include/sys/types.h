@@ -38,6 +38,7 @@
 #include <inttypes.h>
 
 typedef enum boolean { B_FALSE, B_TRUE } boolean_t;
+typedef enum {false, true} bool;
 
 typedef unsigned char	uchar_t;
 typedef unsigned short	ushort_t;

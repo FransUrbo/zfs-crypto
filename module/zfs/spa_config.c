@@ -65,7 +65,7 @@ static uint64_t spa_config_generation = 1;
  * userland pools when doing testing.
  */
 char *spa_config_path = ZPOOL_CACHE;
-boolean_t zfs_autoimport_disable = B_FALSE;
+bool zfs_autoimport_disable = B_FALSE;
 
 /*
  * Called when the module is first loaded, this routine loads the configuration

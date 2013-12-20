@@ -40,7 +40,7 @@
 /*
  * Enable/disable prefetching of dedup-ed blocks which are going to be freed.
  */
-boolean_t zfs_dedup_prefetch = B_TRUE;
+bool zfs_dedup_prefetch = B_TRUE;
 
 static const ddt_ops_t *ddt_ops[DDT_TYPES] = {
 	&ddt_zap_ops,

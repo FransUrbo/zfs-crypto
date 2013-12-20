@@ -83,7 +83,7 @@ int zfs_mg_noalloc_threshold = 0;
 /*
  * Metaslab debugging: when set, keeps all space maps in core to verify frees.
  */
-boolean_t metaslab_debug = B_FALSE;
+bool metaslab_debug = B_FALSE;
 
 /*
  * Minimum size which forces the dynamic allocator to change

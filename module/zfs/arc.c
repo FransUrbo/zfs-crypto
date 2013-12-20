@@ -185,10 +185,10 @@ int zfs_arc_shrink_shift = 5;
 int zfs_arc_min_prefetch_lifespan = HZ;
 
 /* disable arc proactive arc throttle due to low memory */
-boolean_t zfs_arc_memory_throttle_disable = B_TRUE;
+bool zfs_arc_memory_throttle_disable = B_TRUE;
 
 /* disable duplicate buffer eviction */
-boolean_t zfs_disable_dup_eviction = B_FALSE;
+bool zfs_disable_dup_eviction = B_FALSE;
 
 /*
  * If this percent of memory is free, don't throttle.
@@ -691,10 +691,10 @@ unsigned long l2arc_headroom = L2ARC_HEADROOM;		/* # of dev writes */
 unsigned long l2arc_headroom_boost = L2ARC_HEADROOM_BOOST;
 unsigned long l2arc_feed_secs = L2ARC_FEED_SECS;	/* interval seconds */
 unsigned long l2arc_feed_min_ms = L2ARC_FEED_MIN_MS;	/* min interval msecs */
-boolean_t l2arc_noprefetch = B_TRUE;			/* don't cache prefetch bufs */
-boolean_t l2arc_nocompress = B_FALSE;			/* don't compress bufs */
-boolean_t l2arc_feed_again = B_TRUE;			/* turbo warmup */
-boolean_t l2arc_norw = B_FALSE;			/* no reads during writes */
+bool l2arc_noprefetch = B_TRUE;			/* don't cache prefetch bufs */
+bool l2arc_nocompress = B_FALSE;			/* don't compress bufs */
+bool l2arc_feed_again = B_TRUE;			/* turbo warmup */
+bool l2arc_norw = B_FALSE;			/* no reads during writes */
 
 /*
  * L2ARC Internals

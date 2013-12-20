@@ -64,7 +64,7 @@
  *      User properties
  * Enable/disable nopwrite feature.
  */
-boolean_t zfs_nopwrite_enabled = B_TRUE;
+bool zfs_nopwrite_enabled = B_TRUE;
 
 const dmu_object_type_info_t dmu_ot[DMU_OT_NUMTYPES] = {
     /* byte_swap_function       meta    encrypt name                    */
@@ -1769,7 +1769,7 @@ dmu_object_set_compress(objset_t *os, uint64_t object, uint8_t compress,
 	dnode_rele(dn, FTAG);
 }
 
-boolean_t zfs_mdcomp_disable = B_FALSE;
+bool zfs_mdcomp_disable = B_FALSE;
 
 void
 dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp, zio_prop_t *zp)
