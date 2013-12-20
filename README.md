@@ -27,3 +27,9 @@ The base is latest ZoL/master and ZFS-Crypto/0.6.3.
 
   Some SMBFS rewrites
   https://github.com/zfsonlinux/zfs/pull/1476
+
+I use my own spl-crypto repo, branchcrypto_0.6.2+ for this,
+which is/should be identical to zfsrogue's latest repo. I just
+have my own, just so that I can be absolutly sure they match.
+
+It can be found at https://github.com/FransUrbo/spl-crypto.
