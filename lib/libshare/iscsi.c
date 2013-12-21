@@ -736,7 +736,7 @@ iscsi_retrieve_sessions_scst(void)
 				/* RETRIEVE cid */
 				ret = snprintf(tmp_path, sizeof (tmp_path),
 					    "%s/cid", entries3->path);
-				if (ret < 0 || ret >= sizeo f(tmp_path))
+				if (ret < 0 || ret >= sizeof (tmp_path))
 					goto iscsi_retrieve_sessions_scst_error;
 				if (iscsi_read_sysfs_value(tmp_path, &buffer)
 				    != SA_OK)
@@ -1606,8 +1606,10 @@ iscsi_enable_share_one_scst(sa_share_impl_t impl_share, int tid)
 
 	/* ====== */
 	/* PART 2 - Add device */
-	// echo "add_device $dev filename=/dev/zvol/$vol;blocksize=512"\
-	//	> $SYSFS/handlers/vdisk_blockio/mgmt
+	/*
+	 * echo "add_device $dev filename=/dev/zvol/$vol;blocksize=512"	\
+	 *	> $SYSFS/handlers/vdisk_blockio/mgmt
+	 */
 	ret = snprintf(path, sizeof (buffer), "handlers/vdisk_%s/mgmt",
 			opts->type);
 	if (ret < 0 || ret >= sizeof (path)) {
