@@ -21,11 +21,12 @@
 
 /* Copyright (c) 2011 Turbo Fredriksson <turbo@bayour.com> */
 
-/* This is a simple debug command to verify that the zfs module
+/*
+ * This is a simple debug command to verify that the zfs module
  * retreives values from the iSCSI layer.
  * It will/should output each TID, it's Name and Path of the iSCSI
  * target, one per line. Must be run on the iSCSI target machine.
- * 
+ *
  * If you don't get any output (or want to make sure it retreive all
  * nessesary values, such as LUN, block sizes etc), try compiling the
  * iscsi.c file with DEBUG and see what happens.
@@ -65,21 +66,21 @@ int
 main(void)
 {
 	int tid = 0;
-	iscsi_target_t *temp = malloc( sizeof(iscsi_target_t) );
+	iscsi_target_t *temp = malloc(sizeof (iscsi_target_t));
 #ifdef DEBUG
 	char iqn[255];
 #endif
 
 	printf("iscsi_available=%d\n", iscsi_available);
-	if(iscsi_available) {
+	if (iscsi_available) {
 		temp = iscsi_targets;
 		do
 		{
-			if(temp->next == NULL)
+			if (temp->next == NULL)
 				break;
 
 			printf("  main tid=%2d => %s ; %s\n",
-			       temp->tid, temp->name, temp->path);
+				temp->tid, temp->name, temp->path);
 
 			tid = temp->tid;
 			temp = temp->next;
@@ -92,9 +93,8 @@ main(void)
 		iscsi_generate_target("share/test2", iqn, sizeof (iqn));
 
 		if (iscsi_enable_share_one(tid, iqn,
-		      "/dev/zvol/share/VirtualMachines/Test",
-		      "fileio"))
-		{
+			"/dev/zvol/share/VirtualMachines/Test",
+			"fileio")) {
 			printf("ERROR: Failed to create share\n");
 			exit(SA_SYSTEM_ERR);
 		}

@@ -5599,11 +5599,14 @@ share_mount_one(zfs_handle_t *zhp, int op, int flags, char *protocol,
 		 * zfs_mount() below).
 		 */
 		verify(zfs_prop_get(zhp, ZFS_PROP_MOUNTPOINT, mountpoint,
-				    sizeof (mountpoint), NULL, NULL, 0, B_FALSE) == 0);
+				    sizeof (mountpoint), NULL, NULL, 0,
+				    B_FALSE) == 0);
 		verify(zfs_prop_get(zhp, ZFS_PROP_SHARENFS, shareopts,
-				    sizeof (shareopts), NULL, NULL, 0, B_FALSE) == 0);
+				    sizeof (shareopts), NULL, NULL, 0,
+				    B_FALSE) == 0);
 		verify(zfs_prop_get(zhp, ZFS_PROP_SHARESMB, smbshareopts,
-				    sizeof (smbshareopts), NULL, NULL, 0, B_FALSE) == 0);
+				    sizeof (smbshareopts), NULL, NULL, 0,
+				    B_FALSE) == 0);
 
 		if (op == OP_SHARE &&
 		    strcmp(shareopts, "off") == 0 &&
@@ -5680,9 +5683,9 @@ share_mount_one(zfs_handle_t *zhp, int op, int flags, char *protocol,
 
 			if ((shared_nfs && shared_smb) ||
 			    ((shared_nfs && strcmp(shareopts, "on") == 0) &&
-			     (strcmp(smbshareopts, "off") == 0)) ||
+				(strcmp(smbshareopts, "off") == 0)) ||
 			    ((shared_smb && strcmp(smbshareopts, "on") == 0) &&
-			     (strcmp(shareopts, "off") == 0))) {
+				(strcmp(shareopts, "off") == 0))) {
 				if (!explicit)
 					return (0);
 
@@ -6103,7 +6106,8 @@ unshare_unmount_path(int op, char *path, int flags, boolean_t is_manual)
 			(void) fprintf(stderr, gettext("cannot unshare "
 			    "'%s': legacy share\n"), path);
 			(void) fprintf(stderr, gettext("use exportfs(8), "
-			    "smbcontrol(1) or ietadm(8) to unshare this filesystem\n"));
+			    "smbcontrol(1) or ietadm(8) to unshare this "
+			    "filesystem\n"));
 		} else if (!zfs_is_shared(zhp)) {
 			(void) fprintf(stderr, gettext("cannot unshare '%s': "
 			    "not currently shared\n"), path);
@@ -6338,7 +6342,8 @@ unshare_unmount(int op, int argc, char **argv)
 		if (zfs_get_type(zhp) == ZFS_TYPE_FILESYSTEM) {
 			verify(zfs_prop_get(zhp, op == OP_SHARE ?
 			    ZFS_PROP_SHARENFS : ZFS_PROP_MOUNTPOINT,
-				    nfsiscsi_mnt_prop, sizeof (nfsiscsi_mnt_prop), NULL,
+			    nfsiscsi_mnt_prop,
+			    sizeof (nfsiscsi_mnt_prop), NULL,
 			    NULL, 0, B_FALSE) == 0);
 
 			switch (op) {

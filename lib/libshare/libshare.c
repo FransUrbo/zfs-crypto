@@ -58,7 +58,7 @@ static int update_zfs_shares(sa_handle_impl_t impl_handle, const char *proto);
 static int fstypes_count;
 static sa_fstype_t *fstypes;
 
-/**
+/*
  * Invokes the specified callback function for each Solaris share option
  * listed in the specified string.
  */
@@ -70,12 +70,12 @@ foreach_shareopt(const char *shareopts,
 	int was_nul, rc;
 
 	if (shareopts == NULL)
-		return SA_OK;
+		return (SA_OK);
 
 	shareopts_dup = strdup(shareopts);
 
 	if (shareopts_dup == NULL)
-		return SA_NO_MEMORY;
+		return (SA_NO_MEMORY);
 
 	opt = shareopts_dup;
 	was_nul = 0;
@@ -103,7 +103,7 @@ foreach_shareopt(const char *shareopts,
 
 			if (rc != SA_OK) {
 				free(shareopts_dup);
-				return rc;
+				return (rc);
 			}
 		}
 
@@ -115,7 +115,7 @@ foreach_shareopt(const char *shareopts,
 
 	free(shareopts_dup);
 
-	return 0;
+	return (0);
 }
 
 sa_fstype_t *
@@ -307,8 +307,9 @@ update_zfs_shares_cb(zfs_handle_t *zhp, void *pcookie)
 		return (0);
 	}
 
-	if (type == ZFS_TYPE_FILESYSTEM && zfs_prop_get(zhp, ZFS_PROP_MOUNTPOINT,
-	    mountpoint, sizeof (mountpoint), NULL, NULL, 0, B_FALSE) != 0) {
+	if (type == ZFS_TYPE_FILESYSTEM && zfs_prop_get(zhp,
+	    ZFS_PROP_MOUNTPOINT, mountpoint, sizeof (mountpoint), NULL, NULL,
+	    0, B_FALSE) != 0) {
 		zfs_close(zhp);
 		return (0);
 	}
@@ -321,10 +322,10 @@ update_zfs_shares_cb(zfs_handle_t *zhp, void *pcookie)
 	}
 
 	if (type == ZFS_TYPE_VOLUME) {
-		/* TODO: check whether this is sane */
-		if (sprintf(mountpoint, "/dev/zvol/%s", dataset) < 0) {
+		if (sprintf(mountpoint, "%s/%s/%s", ZVOL_DIR, ZVOL_DRIVER,
+			    dataset) < 0) {
 			zfs_close(zhp);
-			return 0;
+			return (0);
 		}
 	}
 
@@ -422,17 +423,17 @@ process_share(sa_handle_impl_t impl_handle, sa_share_impl_t impl_share,
 
 	if (impl_share == NULL) {
 		if (lstat(pathname, &statbuf) != 0)
-			return SA_BAD_PATH;
+			return (SA_BAD_PATH);
 
 		if (!S_ISDIR(statbuf.st_mode) && !S_ISLNK(statbuf.st_mode))
-			return SA_BAD_PATH;
+			return (SA_BAD_PATH);
 
 		if (S_ISLNK(statbuf.st_mode)) {
 			if (stat(pathname, &statbuf) != 0)
-				return SA_BAD_PATH;
+				return (SA_BAD_PATH);
 
 			if (!S_ISBLK(statbuf.st_mode))
-				return SA_BAD_PATH;
+				return (SA_BAD_PATH);
 		}
 
 		impl_share = alloc_share(pathname);

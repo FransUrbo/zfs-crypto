@@ -102,7 +102,8 @@ typedef struct {
 proto_table_t proto_table[PROTO_END] = {
 	{ZFS_PROP_SHARENFS, "nfs", EZFS_SHARENFSFAILED, EZFS_UNSHARENFSFAILED},
 	{ZFS_PROP_SHARESMB, "smb", EZFS_SHARESMBFAILED, EZFS_UNSHARESMBFAILED},
-	{ZFS_PROP_SHAREISCSI, "iscsi", EZFS_SHAREISCSIFAILED, EZFS_UNSHAREISCSIFAILED},
+	{ZFS_PROP_SHAREISCSI, "iscsi", EZFS_SHAREISCSIFAILED,
+	    EZFS_UNSHAREISCSIFAILED},
 };
 
 zfs_share_proto_t nfs_only[] = {
@@ -160,7 +161,7 @@ is_shared(libzfs_handle_t *hdl, const char *mountpoint, zfs_share_proto_t proto)
 				continue;
 			*tab = '\0';
 			if (strcmp(ptr,
-				   proto_table[proto].p_name) == 0) {
+				    proto_table[proto].p_name) == 0) {
 				switch (proto) {
 				case PROTO_NFS:
 					return (SHARED_NFS);
@@ -550,8 +551,9 @@ zfs_unmount(zfs_handle_t *zhp, const char *mountpoint, int flags)
 	char *mntpt = NULL;
 
 	/* check to see if we need to unmount the filesystem */
-	if ((mountpoint != NULL || ((zfs_get_type(zhp) == ZFS_TYPE_FILESYSTEM) &&
-	     libzfs_mnttab_find(hdl, zhp->zfs_name, &entry) == 0)) ||
+	if ((mountpoint != NULL ||
+	    ((zfs_get_type(zhp) == ZFS_TYPE_FILESYSTEM) &&
+	    libzfs_mnttab_find(hdl, zhp->zfs_name, &entry) == 0)) ||
 	    zfs_get_type(zhp) == ZFS_TYPE_VOLUME) {
 		/*
 		 * mountpoint may have come from a call to
@@ -560,8 +562,8 @@ zfs_unmount(zfs_handle_t *zhp, const char *mountpoint, int flags)
 		 * then get freed later. We strdup it to play it safe.
 		 */
 		if (ZFS_IS_VOLUME(zhp)) {
-			/* TODO: check whether this is sane */
-			if (asprintf(&mntpt, "/dev/zvol/%s", zfs_get_name(zhp)) < 0)
+			if (asprintf(&mntpt, "%s/%s/%s", ZVOL_DIR, ZVOL_DRIVER,
+				    zfs_get_name(zhp)) < 0)
 				return (SHARED_NOT_SHARED);
 		} else if (mountpoint == NULL)
 			mntpt = zfs_strdup(hdl, entry.mnt_mountp);
@@ -573,7 +575,7 @@ zfs_unmount(zfs_handle_t *zhp, const char *mountpoint, int flags)
 		 */
 		zfs_share_proto_t *curr_proto;
 		for (curr_proto = share_all_proto; *curr_proto != PROTO_END;
-		     curr_proto++) {
+			curr_proto++) {
 			if (is_shared(hdl, mntpt, *curr_proto) &&
 			    zfs_unshare_proto(zhp, mntpt, curr_proto) != 0) {
 				break;
@@ -672,9 +674,9 @@ zfs_is_shared_proto(zfs_handle_t *zhp, char **where, zfs_share_proto_t proto)
 	zfs_share_type_t rc;
 
 	if (ZFS_IS_VOLUME(zhp)) {
-		/* TODO: check whether this is sane */
-		if (asprintf(&mountpoint, "/dev/zvol/%s",
-		    zfs_get_name(zhp)) < 0)
+		if (asprintf(&mountpoint, "%s/%s/%s",
+			    ZVOL_DIR, ZVOL_DRIVER,
+			    zfs_get_name(zhp)) < 0)
 			return (SHARED_NOT_SHARED);
 	} else if (!zfs_is_mounted(zhp, &mountpoint))
 		return (SHARED_NOT_SHARED);
@@ -796,9 +798,8 @@ zfs_share_proto(zfs_handle_t *zhp, zfs_share_proto_t *proto)
 	int ret;
 
 	if (ZFS_IS_VOLUME(zhp))
-		/* TODO: check whether this is sane */
-		snprintf(mountpoint, sizeof (mountpoint), "/dev/zvol/%s",
-		    zfs_get_name(zhp));
+		snprintf(mountpoint, sizeof (mountpoint), "%s/%s/%s",
+			    ZVOL_DIR, ZVOL_DRIVER, zfs_get_name(zhp));
 	else if (!zfs_is_mountable(zhp, mountpoint, sizeof (mountpoint), NULL))
 		return (0);
 
@@ -960,8 +961,8 @@ zfs_unshare_proto(zfs_handle_t *zhp, const char *mountpoint,
 	if (mountpoint != NULL)
 		mountpoint = mntpt = zfs_strdup(hdl, mountpoint);
 	else if (ZFS_IS_VOLUME(zhp)) {
-		/* TODO: check whether this is sane */
-		if (asprintf(&mntpt, "/dev/zvol/%s", zfs_get_name(zhp)) < 0)
+		if (asprintf(&mntpt, "%s/%s/%s", ZVOL_DIR, ZVOL_DRIVER,
+			    zfs_get_name(zhp)) < 0)
 			return (SHARED_NOT_SHARED);
 		mountpoint = mntpt;
 	}

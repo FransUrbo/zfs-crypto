@@ -72,7 +72,8 @@ typedef struct prop_changenode {
 struct prop_changelist {
 	zfs_prop_t		cl_prop;
 	zfs_prop_t		cl_realprop;
-	zfs_prop_t		cl_shareprop;  /* used with sharenfs/sharesmb/shareiscsi */
+	/* used with sharenfs/sharesmb/shareiscsi */
+	zfs_prop_t		cl_shareprop;
 	uu_list_pool_t		*cl_pool;
 	uu_list_t		*cl_list;
 	boolean_t		cl_waslegacy;
@@ -86,8 +87,10 @@ struct prop_changelist {
 
 /*
  * If the property is 'mountpoint', go through and unmount filesystems as
- * necessary.  We don't do the same for 'sharenfs'/'shareiscsi', because we can just re-share
- * with different options without interrupting service. We do handle 'sharesmb'
+ * necessary.  We don't do the same for 'sharenfs'/'shareiscsi', because we
+ * can just re-share with different options without interrupting service.
+ * We do handle 'sharesmb'
+ *
  * since there may be old resource names that need to be removed.
  */
 int
@@ -148,7 +151,7 @@ changelist_prefix(prop_changelist_t *clp)
  * remount and/or reshare the filesystems as necessary.  In changelist_gather()
  * we recorded whether the filesystem was previously shared or mounted.  The
  * action we take depends on the previous state, and whether the value was
- * previously 'legacy'. 
+ * previously 'legacy'.
  * For non-legacy properties, we only remount/reshare the filesystem if it was
  * previously mounted/shared.  Otherwise, we always remount/reshare the
  * filesystem.
@@ -232,8 +235,8 @@ changelist_postfix(prop_changelist_t *clp)
 		mounted = zfs_is_mounted(cn->cn_handle, NULL);
 
 		if (!mounted && (cn->cn_mounted ||
-		    ((sharenfs || sharesmb || shareiscsi || clp->cl_waslegacy) &&
-		    (zfs_prop_get_int(cn->cn_handle,
+		    ((sharenfs || sharesmb || shareiscsi ||
+		    clp->cl_waslegacy) && (zfs_prop_get_int(cn->cn_handle,
 		    ZFS_PROP_CANMOUNT) == ZFS_CANMOUNT_ON)))) {
 			if (zfs_mount(cn->cn_handle, NULL, 0) != 0)
 				errors++;
@@ -255,9 +258,11 @@ changelist_postfix(prop_changelist_t *clp)
 		else if (cn->cn_shared || clp->cl_waslegacy)
 			errors += zfs_unshare_smb(cn->cn_handle, NULL);
 
-		/* XXX: This is wrong somehow - needs to be fixed properly.
-		 *      In practice it works, it just looks wrong (considering
-		 *      above code... */
+		/*
+		 * XXX: This is wrong somehow - needs to be fixed properly.
+		 *	In practice it works, it just looks wrong (considering
+		 *	above code...
+		 */
 		if (shareiscsi && !cn->cn_shared)
 			errors += zfs_share_iscsi(cn->cn_handle);
 		if (cn->cn_shared || clp->cl_waslegacy) {

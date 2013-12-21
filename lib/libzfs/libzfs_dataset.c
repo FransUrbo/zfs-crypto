@@ -1113,8 +1113,8 @@ badlabel:
 					    errbuf);
 					goto error;
 				} else if (prop == ZFS_PROP_SHARENFS ||
-					   prop == ZFS_PROP_SHARESMB ||
-					   prop == ZFS_PROP_SHAREISCSI) {
+					    prop == ZFS_PROP_SHARESMB ||
+					    prop == ZFS_PROP_SHAREISCSI) {
 					zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 					    "'%s' cannot be set in "
 					    "a non-global zone"), propname);
@@ -1140,8 +1140,8 @@ badlabel:
 			 * property value is valid if it is sharenfs.
 			 */
 			if ((prop == ZFS_PROP_SHARENFS ||
-			     prop == ZFS_PROP_SHARESMB    ||
-			     prop == ZFS_PROP_SHAREISCSI) &&
+			    prop == ZFS_PROP_SHARESMB ||
+			    prop == ZFS_PROP_SHAREISCSI) &&
 			    strcmp(strval, "on") != 0 &&
 			    strcmp(strval, "off") != 0) {
 				zfs_share_proto_t proto;

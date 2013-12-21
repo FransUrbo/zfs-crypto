@@ -24,15 +24,15 @@
  * Copyright (c) 2011 Gunnar Beutner
  */
 
-#define SYSFS_SCST "/sys/kernel/scst_tgt"
-#define PROC_IET_VOLUME "/proc/net/iet/volume"
-#define PROC_IET_SESSION "/proc/net/iet/session"
-#define IETM_CMD_PATH "/usr/sbin/ietadm"
-#define DOMAINNAME_FILE "/etc/domainname"
-#define TARGET_NAME_FILE "/etc/iscsi_target_id"
-#define EXTRA_ISCSI_SHARE_SCRIPT "/sbin/zfs_share_iscsi"
+#define	SYSFS_SCST			"/sys/kernel/scst_tgt"
+#define	PROC_IET_VOLUME			"/proc/net/iet/volume"
+#define	PROC_IET_SESSION		"/proc/net/iet/session"
+#define	IETM_CMD_PATH			"/usr/sbin/ietadm"
+#define	DOMAINNAME_FILE			"/etc/domainname"
+#define	TARGET_NAME_FILE		"/etc/iscsi_target_id"
+#define	EXTRA_ISCSI_SHARE_SCRIPT	"/sbin/zfs_share_iscsi"
 
-/**
+/*
  * tid:1 name:iqn.2012-11.com.bayour:share.tests.iscsi1
  *	lun:0 state:0 iotype:fileio iomode:wt blocks:31457280 blocksize:512 \
  *	path:/dev/zvol/share/tests/iscsi1
@@ -45,7 +45,7 @@ typedef struct iscsi_shareopts_s {
 	int	blocksize;	/* 512, 1024, 2048 or 4096 */
 } iscsi_shareopts_t;
 
-/**
+/*
  * When the share is active
  *   debianzfs:~# cat /proc/net/iet/session
  *   tid:1 name:iqn.2012-11.com.bayour:share.tests.iscsi1
@@ -72,25 +72,27 @@ typedef struct iscsi_session_s {
 	struct iscsi_session_s *next;
 } iscsi_session_t;
 
-/**
+/*
  * tid:1 name:iqn.2012-11.com.bayour:share.tests.iscsi1
- * 	lun:0 state:0 iotype:fileio iomode:wt blocks:31457280 blocksize:512 path:/dev/zvol/share/tests/iscsi1
+ * 	lun:0 state:0 iotype:fileio iomode:wt blocks:31457280 \
+ * 	blocksize:512 path:/dev/zvol/share/tests/iscsi1
  */
 typedef struct iscsi_target_s {
-        int     tid;            /* Target ID */
-        char    name[255];      /* Target Name */
-        int     lun;            /* Target LUN */
-        int     state;          /* Target State */
-        char    iotype[8];      /* Target IO Type - fileio, blockio, nullio, disk, tape */
-        char    iomode[3];      /* Target IO Mode - wb, wt, ro */
-        int     blocks;         /* Target Size (blocks) */
-        int     blocksize;      /* Target Block Size (bytes) */
-        char    path[PATH_MAX];	/* Target Path */
+	int	tid;		/* Target ID */
+	char	name[255];	/* Target Name */
+	int	lun;		/* Target LUN */
+	int	state;		/* Target State */
+	char	iotype[8];	/* Target IO Type - fileio, */
+				/* blockio, nullio, disk, tape */
+	char	iomode[3];	/* Target IO Mode - wb, wt, ro */
+	int	blocks;		/* Target Size (blocks) */
+	int	blocksize;	/* Target Block Size (bytes) */
+	char	path[PATH_MAX];	/* Target Path */
 	char	device[16];	/* For SCST: The iSCSI device */
 
 	struct iscsi_session_s *session;
 
-        struct iscsi_target_s *next;
+	struct iscsi_target_s *next;
 } iscsi_target_t;
 
 iscsi_target_t *iscsi_targets;

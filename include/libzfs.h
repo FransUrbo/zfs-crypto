@@ -142,9 +142,8 @@ typedef enum zfs_error {
 	EZFS_DIFF,		/* general failure of zfs diff */
 	EZFS_DIFFDATA,		/* bad zfs diff data */
 	EZFS_POOLREADONLY,	/* pool is in read-only mode */
-	EZFS_UNSHAREISCSIFAILED,/* failed to unshare over iSCSI */
+	EZFS_UNSHAREISCSIFAILED, /* failed to unshare over iSCSI */
 	EZFS_SHAREISCSIFAILED,	/* failed to share over iSCSI */
-	EZFS_KEYERR,            /* crypto key not present or invalid */
 	EZFS_UNKNOWN
 } zfs_error_t;
 
