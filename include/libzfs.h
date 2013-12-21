@@ -144,6 +144,7 @@ typedef enum zfs_error {
 	EZFS_POOLREADONLY,	/* pool is in read-only mode */
 	EZFS_UNSHAREISCSIFAILED, /* failed to unshare over iSCSI */
 	EZFS_SHAREISCSIFAILED,	/* failed to share over iSCSI */
+	EZFS_KEYERR,		/* crypto key not present or invalid */
 	EZFS_UNKNOWN
 } zfs_error_t;
 
