@@ -31,9 +31,9 @@
 #define	SMB_NAME_MAX			255
 #define	SMB_COMMENT_MAX			255
 
-#define NET_CMD_PATH			"/usr/bin/net"
-#define NET_CMD_ARG_HOST		"127.0.0.1"
-#define EXTRA_SMBFS_SHARE_SCRIPT	"/sbin/zfs_share_smbfs"
+#define	NET_CMD_PATH			"/usr/bin/net"
+#define	NET_CMD_ARG_HOST		"127.0.0.1"
+#define	EXTRA_SMBFS_SHARE_SCRIPT	"/sbin/zfs_share_smbfs"
 
 typedef struct smb_share_s {
 	char name[SMB_NAME_MAX];	/* Share name */
