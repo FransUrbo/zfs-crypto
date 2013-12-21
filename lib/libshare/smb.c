@@ -687,7 +687,8 @@ smb_available(void)
 	char *argv[5];
 
 	if (access(NET_CMD_PATH, X_OK) != 0) {
-		fprintf(stderr, "ERROR: %s does not exist\n", NET_CMD_PATH);
+		fprintf(stderr, "ERROR: %s does not exist or not executable\n",
+			NET_CMD_PATH);
 		return (B_FALSE);
 	}
 
@@ -699,8 +700,11 @@ smb_available(void)
 	argv[4] = NULL;
 
 	rc = libzfs_run_process(argv[0], argv, 0);
-	if (rc == 255)
+	if (rc == 255) {
+		fprintf(stderr, "ERROR: %s can't talk to samba.\n",
+			NET_CMD_PATH);
 		return (B_FALSE);
+	}
 
 	return (B_TRUE);
 }
