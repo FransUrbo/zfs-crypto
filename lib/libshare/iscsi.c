@@ -81,7 +81,7 @@ enum {
 
 /*
  * What iSCSI implementation found
- * -1: none
+ *  0: none
  *  1: IET found
  *  2: SCST found
  */
@@ -268,10 +268,10 @@ iscsi_write_sysfs_value(char *path, char *value)
  * OR: Use information from /etc/iscsi_target_id:
  *     Example: iqn.2012-11.com.bayour
  *
- * => iqn.yyyy-mm.tld.domain:path
+ * => iqn.yyyy-mm.tld.domain:dataset (with . instead of /)
  */
 static int
-iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
+iscsi_generate_target(const char *dataset, char *iqn, size_t iqn_len)
 {
 	char tsbuf[8]; /* YYYY-MM */
 	char domain[256], revname[256], name[256],
@@ -282,12 +282,8 @@ iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
 	int i, ret;
 	FILE *domainname_fp = NULL, *iscsi_target_name_fp = NULL;
 
-	if (path == NULL)
+	if (dataset == NULL)
 		return (SA_SYSTEM_ERR);
-
-	/* Make sure that iqn and iqn_len is set */
-	assert(iqn != NULL);
-	assert(iqn_len < 1);
 
 	/*
 	 * Make sure file_iqn buffer contain zero byte or else strlen() later
@@ -400,7 +396,7 @@ iscsi_generate_target(const char *path, char *iqn, size_t iqn_len)
 	}
 
 	/* Take the dataset name, replace / with . */
-	strncpy(name, path, sizeof (name));
+	strncpy(name, dataset, sizeof (name));
 	pos = name;
 	while (*pos != '\0') {
 		switch (*pos) {
@@ -1001,7 +997,7 @@ next_targets:
 
 #ifdef DEBUG
 		fprintf(stderr, "iscsi_retrieve_targets: target=%s, tid=%d, "
-			"path=%s, active=%d\n", target->name, target->tid,
+			"path=%s, active=%d\n\n", target->name, target->tid,
 			target->path,
 			target->session ? target->session->state : -1);
 #endif
@@ -1252,6 +1248,7 @@ retrieve_targets_scst_out:
 /*
  * WRAPPER: Depending on iSCSI implementation, call the
  * relevant function but only if we haven't already.
+ * TODO: That doesn't work exactly as intended. Threading?
  */
 static int
 iscsi_retrieve_targets(void)
@@ -1756,7 +1753,6 @@ iscsi_disable_share_one_scst(int tid)
 
 	/* Retreive the list of (possible) active shares */
 	iscsi_retrieve_targets();
-
 	while (iscsi_targets != NULL) {
 		if (iscsi_targets->tid == tid) {
 #ifdef DEBUG
@@ -1862,7 +1858,7 @@ iscsi_disable_share(sa_share_impl_t impl_share)
 int
 iscsi_disable_share_all(void)
 {
-	int rc = 0;
+	int rc = 0, rc1 = 0;
 
 	/* Retreive the list of (possible) active shares */
 	iscsi_retrieve_targets();
@@ -1873,7 +1869,12 @@ iscsi_disable_share_all(void)
 			"tid=%d, path=%s\n", iscsi_targets->name,
 			iscsi_targets->tid, iscsi_targets->path);
 #endif
-		rc += iscsi_disable_share_one(iscsi_targets->tid);
+		rc1 = iscsi_disable_share_one(iscsi_targets->tid);
+		if (rc1 != SA_OK) {
+			fprintf(stderr, "failed to unshare %s (%d)\n",
+				iscsi_targets->name, rc1);
+			rc += rc1;
+		}
 
 		iscsi_targets = iscsi_targets->next;
 	}
@@ -1884,8 +1885,6 @@ iscsi_disable_share_all(void)
 static boolean_t
 iscsi_is_share_active(sa_share_impl_t impl_share)
 {
-	/* Retreive the list of (possible) active shares */
-	iscsi_retrieve_targets();
 	while (iscsi_targets != NULL) {
 #ifdef DEBUG
 		fprintf(stderr, "iscsi_is_share_active: %s ?? %s\n",
