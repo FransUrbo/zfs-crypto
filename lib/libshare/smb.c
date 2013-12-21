@@ -683,29 +683,7 @@ static const sa_share_ops_t smb_shareops = {
 static boolean_t
 smb_available(void)
 {
-	int rc;
-	char *argv[5];
-
-	if (access(NET_CMD_PATH, X_OK) != 0) {
-		fprintf(stderr, "ERROR: %s does not exist or not executable\n",
-			NET_CMD_PATH);
-		return (B_FALSE);
-	}
-
-	/* Check samba access */
-	argv[0]  = NET_CMD_PATH;
-	argv[1]  = (char *)"-S";
-	argv[2]  = NET_CMD_ARG_HOST;
-	argv[3]  = (char *)"time";
-	argv[4] = NULL;
-
-	rc = libzfs_run_process(argv[0], argv, 0);
-	if (rc == 255) {
-		fprintf(stderr, "ERROR: %s can't talk to samba.\n",
-			NET_CMD_PATH);
-		return (B_FALSE);
-	}
-
+	/* If we got past libshare_smb_init(), then it is available! */
 	return (B_TRUE);
 }
 
@@ -715,9 +693,27 @@ smb_available(void)
 void
 libshare_smb_init(void)
 {
+	int rc;
+	char *argv[5];
+
 	if (access(NET_CMD_PATH, X_OK) == 0) {
-		/* Only do part of smb_available() - forking is to expensive */
-		smb_fstype = register_fstype("smb", &smb_shareops);
-		smb_shares = NULL;
+		/* The net command exists, now Check samba access */
+		argv[0]  = NET_CMD_PATH;
+		argv[1]  = (char *)"-S";
+		argv[2]  = NET_CMD_ARG_HOST;
+		argv[3]  = (char *)"time";
+		argv[4] = NULL;
+
+		rc = libzfs_run_process(argv[0], argv, 0);
+		if (rc == 255) {
+			fprintf(stderr, "ERROR: %s can't talk to samba.\n",
+				NET_CMD_PATH);
+		} else {
+			smb_fstype = register_fstype("smb", &smb_shareops);
+			smb_shares = NULL;
+		}
+	} else {
+		fprintf(stderr, "ERROR: %s does not exist or not executable\n",
+			NET_CMD_PATH);
 	}
 }
