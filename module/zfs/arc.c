@@ -692,7 +692,7 @@ unsigned long l2arc_headroom_boost = L2ARC_HEADROOM_BOOST;
 unsigned long l2arc_feed_secs = L2ARC_FEED_SECS;	/* interval seconds */
 unsigned long l2arc_feed_min_ms = L2ARC_FEED_MIN_MS;	/* min interval msecs */
 bool l2arc_noprefetch = B_TRUE;			/* don't cache prefetch bufs */
-bool l2arc_nocompress = B_FALSE;			/* don't compress bufs */
+bool l2arc_nocompress = B_FALSE;		/* don't compress bufs */
 bool l2arc_feed_again = B_TRUE;			/* turbo warmup */
 bool l2arc_norw = B_FALSE;			/* no reads during writes */
 
