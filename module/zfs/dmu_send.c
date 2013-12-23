@@ -518,6 +518,10 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
                             zfs_prop_to_name(ZFS_PROP_ENCRYPTION), 8, 1, &crypt, NULL
                             /*,DSL_PROP_GET_EFFECTIVE*/) != 0) {
             rrw_exit(&ds->ds_dir->dd_pool->dp_config_rwlock, FTAG);
+			if (fromds != NULL)
+				dsl_dataset_rele(fromds, tag);
+			dsl_dataset_rele(ds, tag);
+			dsl_pool_rele(dp, tag);
             return (EINVAL);
         }
         rrw_exit(&ds->ds_dir->dd_pool->dp_config_rwlock, FTAG);
@@ -574,9 +578,6 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 		goto out;
 	}
 
-	dsl_dataset_long_hold(ds, FTAG);
-	dsl_pool_rele(dp, tag);
-
 	err = traverse_dataset(ds, fromtxg, TRAVERSE_PRE | TRAVERSE_PREFETCH,
 	    backup_cb, dsp);
 
@@ -608,7 +609,6 @@ out:
 	kmem_free(drr, sizeof (dmu_replay_record_t));
 	kmem_free(dsp, sizeof (dmu_sendarg_t));
 
-	dsl_dataset_long_rele(ds, FTAG);
 	dsl_dataset_rele(ds, tag);
 
 	return (err);
@@ -898,7 +898,7 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 	error = dsl_dataset_hold(dp, tofs, FTAG, &ds);
 	if (error == 0) {
         if (!dmu_recv_verify_features(ds, drrb)) {
-            dsl_dataset_rele(ds, dmu_recv_tag);
+            dsl_dataset_rele(ds, FTAG);
             return (ENOTSUP);
         }
 		/* target fs already exists; recv into temp clone */

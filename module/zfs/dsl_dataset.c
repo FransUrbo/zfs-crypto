@@ -2340,6 +2340,7 @@ promote_hold(dsl_dataset_promote_arg_t *ddpa, dsl_pool_t *dp, void *tag)
 out:
 	if (error != 0)
 		promote_rele(ddpa, tag);
+	dsl_dataset_rele(ddpa->ddpa_clone, tag);
 	return (error);
 }
 
