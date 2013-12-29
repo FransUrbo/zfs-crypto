@@ -68,7 +68,7 @@ BuildRequires:             kmod-spl-devel = %{version}
 # Kmodtool does its magic here.  A patched version of kmodtool is shipped
 # with the source rpm until kmod development packages are supported upstream.
 # https://bugzilla.rpmfusion.org/show_bug.cgi?id=2714
-%{expand:%(bash %{SOURCE10} --target %{_target_cpu} %{?repo:--repo %{?repo}} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} --devel %{?prefix:--prefix "%{?prefix}"} %{?kernels:--for-kernels "%{?kernels}"} %{?kernelbuildroot:--buildroot "%{?kernelbuildroot}"} 2>/dev/null) }
+%{expand:%(bash %{SOURCE10} --target %{_target_cpu} %{?repo:--repo %{?repo}} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} --devel %{?prefix:--prefix "%{?prefix}"} %{?kernels:--for-kernels "%{?kernels}"} %{?kernelbuildroot:--buildroot "%{?kernelbuildroot}"} %{?ksrc:--linuxdir "%{?ksrc}"} 2>/dev/null) }
 
 
 %description
@@ -79,7 +79,7 @@ This package contains the ZFS kernel modules.
 %{?kmodtool_check}
 
 # Print kmodtool output for debugging purposes:
-bash %{SOURCE10}  --target %{_target_cpu} %{?repo:--repo %{?repo}} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} --devel %{?prefix:--prefix "%{?prefix}"} %{?kernels:--for-kernels "%{?kernels}"} %{?kernelbuildroot:--buildroot "%{?kernelbuildroot}"} 2>/dev/null
+bash %{SOURCE10}  --target %{_target_cpu} %{?repo:--repo %{?repo}} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} --devel %{?prefix:--prefix "%{?prefix}"} %{?kernels:--for-kernels "%{?kernels}"} %{?kernelbuildroot:--buildroot "%{?kernelbuildroot}"} %{?ksrc:--linuxdir "%{?ksrc}"} 2>/dev/null
 
 %if %{with debug}
     %define debug --enable-debug
@@ -173,6 +173,9 @@ for kernel_version in %{?kernel_versions}; do
     cd ..
 done
 chmod u+x ${RPM_BUILD_ROOT}%{kmodinstdir_prefix}/*/extra/*/*/*
+mkdir -p ${RPM_BUILD_ROOT}/usr/src/%{kernels}
+mv ${RPM_BUILD_ROOT}/usr/src/%{module}-%{version}/* ${RPM_BUILD_ROOT}/usr/src/%{kernels}/
+mv ${RPM_BUILD_ROOT}/usr/src/%{kernels} ${RPM_BUILD_ROOT}/usr/src/%{module}-%{version}/%{kernels}
 %{?akmod_install}
 
 
