@@ -1,0 +1,4 @@
+Look in include/sys/fm/fs/zfs.h (defines 'FM_EREPORT_ZFS_*')
+for possible events that can occur.
+
+Also look at zfs-events(5) for more information.

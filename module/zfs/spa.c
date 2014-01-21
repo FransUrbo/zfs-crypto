@@ -1377,7 +1377,7 @@ spa_load_spares(spa_t *spa)
 	 * validate each vdev on the spare list.  If the vdev also exists in the
 	 * active configuration, then we also mark this vdev as an active spare.
 	 */
-	spa->spa_spares.sav_vdevs = kmem_alloc(nspares * sizeof (void *),
+	spa->spa_spares.sav_vdevs = kmem_zalloc(nspares * sizeof (void *),
 	    KM_PUSHPAGE);
 	for (i = 0; i < spa->spa_spares.sav_count; i++) {
 		VERIFY(spa_config_parse(spa, &vd, spares[i], NULL, 0,
@@ -4034,6 +4034,8 @@ spa_import(char *pool, nvlist_t *config, nvlist_t *props, uint64_t flags)
 	mutex_exit(&spa_namespace_lock);
 	spa_history_log_version(spa, "import");
 
+	spa_event_notify(spa, NULL, FM_EREPORT_ZFS_POOL_IMPORT);
+
 #ifdef _KERNEL
 	zvol_create_minors(pool);
 #endif
@@ -4224,7 +4226,12 @@ spa_export_common(char *pool, int new_state, nvlist_t **oldconfig,
 		}
 	}
 
-	spa_event_notify(spa, NULL, FM_EREPORT_ZFS_POOL_DESTROY);
+	if (new_state == POOL_STATE_DESTROYED)
+		spa_event_notify(spa, NULL, FM_EREPORT_ZFS_POOL_DESTROY);
+	else if (new_state == POOL_STATE_EXPORTED)
+		spa_event_notify(spa, NULL, FM_EREPORT_ZFS_POOL_EXPORT);
+	else
+		spa_event_notify(spa, NULL, FM_EREPORT_ZFS_POOL);
 
 	if (spa->spa_state != POOL_STATE_UNINITIALIZED) {
 		spa_unload(spa);
@@ -4787,7 +4794,7 @@ spa_vdev_detach(spa_t *spa, uint64_t guid, uint64_t pguid, int replace_done)
 	vd->vdev_detached = B_TRUE;
 	vdev_dirty(tvd, VDD_DTL, vd, txg);
 
-	spa_event_notify(spa, vd, FM_EREPORT_ZFS_DEVICE_REMOVE);
+	spa_event_notify(spa, vd, FM_EREPORT_ZFS_DEVICE_DETACH);
 
 	/* hang on to the spa before we release the lock */
 	spa_open_ref(spa, FTAG);
@@ -5354,6 +5361,9 @@ spa_vdev_remove(spa_t *spa, uint64_t guid, boolean_t unspare)
 		 */
 		error = SET_ERROR(ENOENT);
 	}
+
+	if (!error)
+		spa_event_notify(spa, spa->spa_root_vdev, FM_EREPORT_ZFS_DEVICE_REMOVE);
 
 	if (!locked)
 		return (spa_vdev_exit(spa, NULL, txg, error));

@@ -1,0 +1,15 @@
+# This is a collection of useful functions for use with the
+# event scripts.
+
+check_boolean() {
+	val=$1
+	case "$val" in
+		([Oo][Ff][Ff]|[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|0)
+			return 1
+			;;
+		([Oo][Nn]|[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|1)
+			return 0
+			;;
+	esac
+	return 1
+}
