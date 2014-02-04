@@ -1,14 +1,7 @@
 initdir = $(DEFAULT_INIT_DIR)
-init_SCRIPTS = zfs
+init_SCRIPTS = zfs-common zfs-mount zfs-share
 zeddir = $(DEFAULT_INIT_DIR)
 zed_SCRIPTS = zed
-
-EXTRA_DIST = \
-	$(top_srcdir)/etc/init.d/zfs.fedora.in \
-	$(top_srcdir)/etc/init.d/zfs.gentoo.in \
-	$(top_srcdir)/etc/init.d/zfs.lsb.in \
-	$(top_srcdir)/etc/init.d/zfs.lunar.in \
-	$(top_srcdir)/etc/init.d/zfs.redhat.in
 
 $(init_SCRIPTS):
 	-$(SED) -e 's,@bindir\@,$(bindir),g' \
@@ -17,7 +10,7 @@ $(init_SCRIPTS):
 		-e 's,@udevruledir\@,$(udevruledir),g' \
 		-e 's,@sysconfdir\@,$(sysconfdir),g' \
 		-e 's,@initdir\@,$(initdir),g' \
-		'$@.$(DEFAULT_INIT_SCRIPT).in' >'$@'
+		'$@.in' >'$@'
 
 $(zed_SCRIPTS):
 	-$(SED) -e 's,@bindir\@,$(bindir),g' \
