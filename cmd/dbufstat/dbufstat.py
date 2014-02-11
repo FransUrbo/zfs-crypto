@@ -126,7 +126,6 @@ def print_incompat_helper(incompat):
 
     sys.stderr.write("\n\n")
 
-
 def detailed_usage():
     sys.stderr.write("%s\n" % cmd)
 
@@ -172,7 +171,6 @@ def usage():
 
     sys.exit(1)
 
-
 def prettynum(sz, scale, num=0):
     global raw
 
@@ -200,7 +198,6 @@ def prettynum(sz, scale, num=0):
     else:
         return "%*d%s" % (sz - 1, num, suffix[index])
 
-
 def print_values(v):
     global hdr
     global sep
@@ -213,7 +210,6 @@ def print_values(v):
     except IOError as e:
         if e.errno == errno.EPIPE:
             sys.exit(1)
-
 
 def print_header():
     global hdr
@@ -429,7 +425,6 @@ def types_build_dict(filehandle):
         update_dict(types, 'dtype', line.split(), labels)
 
     return types
-
 
 def buffers_print_all(filehandle):
     labels = dict()

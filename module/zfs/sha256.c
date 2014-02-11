@@ -125,3 +125,23 @@ zio_checksum_SHA256(const void *buf, uint64_t size, zio_cksum_t *zcp)
 	    (uint64_t)H[4] << 32 | H[5],
 	    (uint64_t)H[6] << 32 | H[7]);
 }
+
+/*
+ * SHA256 truncated at 128 and stored in the the first 2.5 words
+ * of the checksum.  The last 1.5 words store the MAC, not handled here.
+ */
+void
+zio_checksum_SHAMAC(const void *buf, uint64_t size, zio_cksum_t *zcp)
+{
+  zio_cksum_t tmp;
+
+  zio_checksum_SHA256(buf, size, &tmp);
+
+  /* Straight copy for the first 128 bits */
+  zcp->zc_word[0] = tmp.zc_word[0];
+  zcp->zc_word[1] = tmp.zc_word[1];
+
+  /* Copy over 32 more bits */
+  BF64_SET(zcp->zc_word[2], 0, 32,
+	   BF64_GET(tmp.zc_word[2], 0, 32));
+}

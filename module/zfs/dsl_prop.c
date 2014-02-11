@@ -814,6 +814,7 @@ dsl_props_set_sync(void *arg, dmu_tx_t *tx)
 	dsl_dataset_rele(ds, FTAG);
 }
 
+
 /*
  * All-or-nothing; if any prop can't be set, nothing will be modified.
  */
@@ -838,11 +839,12 @@ dsl_props_set(const char *dsname, zprop_source_t source, nvlist_t *props)
 	    &dpsa, nblks));
 }
 
+
 typedef enum dsl_prop_getflags {
 	DSL_PROP_GET_INHERITING = 0x1,	/* searching parent of target ds */
 	DSL_PROP_GET_SNAPSHOT = 0x2,	/* snapshot dataset */
 	DSL_PROP_GET_LOCAL = 0x4,	/* local properties */
-	DSL_PROP_GET_RECEIVED = 0x8	/* received properties */
+	DSL_PROP_GET_RECEIVED = 0x8,	/* received properties */
 } dsl_prop_getflags_t;
 
 static int

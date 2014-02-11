@@ -33,6 +33,7 @@
 
 #include <sys/zfs_context.h>
 #include <sys/dmu.h>
+#include <sys/dmu_objset.h>
 #include <sys/txg.h>
 #include <sys/dsl_destroy.h>
 #include <linux/cdev.h>

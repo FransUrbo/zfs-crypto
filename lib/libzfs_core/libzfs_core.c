@@ -170,13 +170,17 @@ out:
 }
 
 int
-lzc_create(const char *fsname, dmu_objset_type_t type, nvlist_t *props)
+lzc_create(const char *fsname, dmu_objset_type_t type, nvlist_t *props,
+           zfs_ioc_crypto_t *zic)
 {
 	int error;
 	nvlist_t *args = fnvlist_alloc();
 	fnvlist_add_int32(args, "type", type);
-	if (props != NULL)
+	if (props != NULL) {
 		fnvlist_add_nvlist(args, "props", props);
+        fnvlist_add_byte_array(args, "crypto_ctx", (unsigned char *)zic,
+                               sizeof(*zic));
+    }
 	error = lzc_ioctl(ZFS_IOC_CREATE, fsname, args, NULL);
 	nvlist_free(args);
 	return (error);
@@ -184,13 +188,16 @@ lzc_create(const char *fsname, dmu_objset_type_t type, nvlist_t *props)
 
 int
 lzc_clone(const char *fsname, const char *origin,
-    nvlist_t *props)
+    nvlist_t *props, zfs_ioc_crypto_t *zic)
 {
 	int error;
 	nvlist_t *args = fnvlist_alloc();
 	fnvlist_add_string(args, "origin", origin);
-	if (props != NULL)
+	if (props != NULL) {
 		fnvlist_add_nvlist(args, "props", props);
+        fnvlist_add_byte_array(args, "crypto_ctx", (unsigned char *)zic,
+                               sizeof(*zic));
+    }
 	error = lzc_ioctl(ZFS_IOC_CLONE, fsname, args, NULL);
 	nvlist_free(args);
 	return (error);
@@ -287,6 +294,7 @@ lzc_destroy_snaps(nvlist_t *snaps, boolean_t defer, nvlist_t **errlist)
 	nvlist_free(args);
 
 	return (error);
+
 }
 
 int
@@ -605,3 +613,4 @@ lzc_rollback(const char *fsname, char *snapnamebuf, int snapnamelen)
 	}
 	return (err);
 }
+

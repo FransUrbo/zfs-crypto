@@ -125,7 +125,6 @@ dsl_destroy_snapshot_check(void *arg, dmu_tx_t *tx)
 	pair = nvlist_next_nvpair(dsda->dsda_errlist, NULL);
 	if (pair != NULL)
 		return (fnvpair_value_int32(pair));
-
 	return (0);
 }
 

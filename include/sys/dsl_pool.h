@@ -47,6 +47,7 @@ extern int zfs_txg_synctime_ms;
 struct objset;
 struct dsl_dir;
 struct dsl_dataset;
+struct dsl_crypto_ctx;
 struct dsl_pool;
 struct dmu_tx;
 struct dsl_scan;
@@ -137,7 +138,7 @@ typedef struct dsl_pool {
 int dsl_pool_init(spa_t *spa, uint64_t txg, dsl_pool_t **dpp);
 int dsl_pool_open(dsl_pool_t *dp);
 void dsl_pool_close(dsl_pool_t *dp);
-dsl_pool_t *dsl_pool_create(spa_t *spa, nvlist_t *zplprops, uint64_t txg);
+dsl_pool_t *dsl_pool_create(spa_t *spa, struct dsl_crypto_ctx *dcc, nvlist_t *zplprops, uint64_t txg);
 void dsl_pool_sync(dsl_pool_t *dp, uint64_t txg);
 void dsl_pool_sync_done(dsl_pool_t *dp, uint64_t txg);
 int dsl_pool_sync_context(dsl_pool_t *dp);
@@ -148,6 +149,12 @@ void dsl_pool_undirty_space(dsl_pool_t *dp, int64_t space, uint64_t txg);
 void dsl_free(dsl_pool_t *dp, uint64_t txg, const blkptr_t *bpp);
 void dsl_free_sync(zio_t *pio, dsl_pool_t *dp, uint64_t txg,
     const blkptr_t *bpp);
+int dsl_read(zio_t *pio, spa_t *spa, const blkptr_t *bpp, arc_buf_t *pbuf,
+    arc_done_func_t *done, void *_private, int priority, int zio_flags,
+    uint32_t *arc_flags, const zbookmark_t *zb);
+int dsl_read_nolock(zio_t *pio, spa_t *spa, const blkptr_t *bpp,
+    arc_done_func_t *done, void *_private, int priority, int zio_flags,
+    uint32_t *arc_flags, const zbookmark_t *zb);
 void dsl_pool_create_origin(dsl_pool_t *dp, dmu_tx_t *tx);
 void dsl_pool_upgrade_clones(dsl_pool_t *dp, dmu_tx_t *tx);
 void dsl_pool_upgrade_dir_clones(dsl_pool_t *dp, dmu_tx_t *tx);

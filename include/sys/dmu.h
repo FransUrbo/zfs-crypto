@@ -58,6 +58,7 @@ struct zio;
 struct blkptr;
 struct zap_cursor;
 struct dsl_dataset;
+struct dsl_crypto_ctx;
 struct dsl_pool;
 struct dnode;
 struct drr_begin;
@@ -184,6 +185,10 @@ typedef enum dmu_object_type {
 	DMU_OT_DEADLIST_HDR,		/* UINT64 */
 	DMU_OT_DSL_CLONES,		/* ZAP */
 	DMU_OT_BPOBJ_SUBOBJ,		/* UINT64 */
+
+	// FIXME
+	DMU_OT_DSL_KEYCHAIN,            /* ZAP */
+
 	/*
 	 * Do not allocate new object types here. Doing so makes the on-disk
 	 * format incompatible with any other format that uses the same object
@@ -261,8 +266,15 @@ int dmu_objset_open_ds(struct dsl_dataset *ds, objset_t **osp);
 
 void dmu_objset_evict_dbufs(objset_t *os);
 int dmu_objset_create(const char *name, dmu_objset_type_t type, uint64_t flags,
+                      struct dsl_crypto_ctx *crypto_ctx,
     void (*func)(objset_t *os, void *arg, cred_t *cr, dmu_tx_t *tx), void *arg);
-int dmu_objset_clone(const char *name, const char *origin);
+int dmu_objset_destroy(const char *name, boolean_t defer);
+int dmu_objset_snapshot(char *fsname, char *snapname, char *tag,
+    struct nvlist *props, boolean_t recursive, boolean_t temporary, int fd);
+int dmu_objset_rename(const char *name, const char *newname,
+    boolean_t recursive);
+int dmu_objset_clone(const char *name, const char *clone_origin,
+    struct dsl_crypto_ctx *crypto_ctx);
 int dsl_destroy_snapshots_nvl(struct nvlist *snaps, boolean_t defer,
     struct nvlist *errlist);
 int dmu_objset_snapshot_one(const char *fsname, const char *snapname);
@@ -639,7 +651,8 @@ typedef struct dmu_object_info {
 	uint8_t doi_indirection;		/* 2 = dnode->indirect->data */
 	uint8_t doi_checksum;
 	uint8_t doi_compress;
-	uint8_t doi_pad[5];
+    uint8_t doi_crypt;
+	uint8_t doi_pad[4];
 	uint64_t doi_physical_blocks_512;	/* data + metadata, 512b blks */
 	uint64_t doi_max_offset;
 	uint64_t doi_fill_count;		/* number of non-empty blocks */
@@ -650,6 +663,7 @@ typedef void (*const arc_byteswap_func_t)(void *buf, size_t size);
 typedef struct dmu_object_type_info {
 	dmu_object_byteswap_t	ot_byteswap;
 	boolean_t		ot_metadata;
+    boolean_t       ot_encrypt;
 	char			*ot_name;
 } dmu_object_type_info_t;
 
@@ -672,7 +686,6 @@ int dmu_object_info(objset_t *os, uint64_t object, dmu_object_info_t *doi);
 void __dmu_object_info_from_dnode(struct dnode *dn, dmu_object_info_t *doi);
 /* Like dmu_object_info, but faster if you have a held dnode in hand. */
 void dmu_object_info_from_dnode(struct dnode *dn, dmu_object_info_t *doi);
-/* Like dmu_object_info, but faster if you have a held dbuf in hand. */
 void dmu_object_info_from_db(dmu_buf_t *db, dmu_object_info_t *doi);
 /*
  * Like dmu_object_info_from_db, but faster still when you only care about

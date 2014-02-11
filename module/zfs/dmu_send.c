@@ -34,6 +34,7 @@
 #include <sys/zfs_context.h>
 #include <sys/dmu_objset.h>
 #include <sys/dmu_traverse.h>
+#include <sys/dsl_crypto.h>
 #include <sys/dsl_dataset.h>
 #include <sys/dsl_dir.h>
 #include <sys/dsl_prop.h>
@@ -48,6 +49,7 @@
 #include <sys/avl.h>
 #include <sys/ddt.h>
 #include <sys/zfs_onexit.h>
+#include <sys/zfeature.h>
 #include <sys/dmu_send.h>
 #include <sys/dsl_destroy.h>
 
@@ -237,6 +239,7 @@ dump_data(dmu_sendarg_t *dsp, dmu_object_type_t type,
 	DDK_SET_LSIZE(&drrw->drr_key, BP_GET_LSIZE(bp));
 	DDK_SET_PSIZE(&drrw->drr_key, BP_GET_PSIZE(bp));
 	DDK_SET_COMPRESS(&drrw->drr_key, BP_GET_COMPRESS(bp));
+    DDK_SET_CRYPT(&drrw->drr_key, BP_GET_CRYPT(bp));
 	drrw->drr_key.ddk_cksum = bp->blk_cksum;
 
 	if (dump_bytes(dsp, dsp->dsa_drr, sizeof (dmu_replay_record_t)) != 0)
@@ -359,10 +362,10 @@ dump_dnode(dmu_sendarg_t *dsp, uint64_t object, dnode_phys_t *dnp)
 
 	/* Free anything past the end of the file. */
 	if (dump_free(dsp, object, (dnp->dn_maxblkid + 1) *
-	    (dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT), -1ULL) != 0)
-		return (SET_ERROR(EINTR));
+	    (dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT), -1ULL))
+		return (EINTR);
 	if (dsp->dsa_err != 0)
-		return (SET_ERROR(EINTR));
+		return (EINTR);
 	return (0);
 }
 
@@ -470,12 +473,13 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 	dmu_sendarg_t *dsp;
 	int err;
 	uint64_t fromtxg = 0;
+    uint64_t featureflags = 0;
 
 	if (fromds != NULL && !dsl_dataset_is_before(ds, fromds)) {
 		dsl_dataset_rele(fromds, tag);
 		dsl_dataset_rele(ds, tag);
 		dsl_pool_rele(dp, tag);
-		return (SET_ERROR(EXDEV));
+		return (EXDEV);
 	}
 
 	err = dmu_objset_from_ds(ds, &os);
@@ -495,23 +499,39 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 
 #ifdef _KERNEL
 	if (dmu_objset_type(os) == DMU_OST_ZFS) {
-		uint64_t version;
+		uint64_t version, crypt;
 		if (zfs_get_zplprop(os, ZFS_PROP_VERSION, &version) != 0) {
 			kmem_free(drr, sizeof (dmu_replay_record_t));
 			if (fromds != NULL)
 				dsl_dataset_rele(fromds, tag);
 			dsl_dataset_rele(ds, tag);
 			dsl_pool_rele(dp, tag);
-			return (SET_ERROR(EINVAL));
+			return (EINVAL);
 		}
 		if (version >= ZPL_VERSION_SA) {
 			DMU_SET_FEATUREFLAGS(
 			    drr->drr_u.drr_begin.drr_versioninfo,
 			    DMU_BACKUP_FEATURE_SA_SPILL);
 		}
+        rrw_enter(&ds->ds_dir->dd_pool->dp_config_rwlock, RW_READER, FTAG);
+        if (dsl_prop_get_ds(ds,
+                            zfs_prop_to_name(ZFS_PROP_ENCRYPTION), 8, 1, &crypt, NULL
+                            /*,DSL_PROP_GET_EFFECTIVE*/) != 0) {
+            rrw_exit(&ds->ds_dir->dd_pool->dp_config_rwlock, FTAG);
+			dsl_dataset_rele(ds, tag);
+			dsl_pool_rele(dp, tag);
+            return (EINVAL);
+        }
+        rrw_exit(&ds->ds_dir->dd_pool->dp_config_rwlock, FTAG);
+        if (crypt != ZIO_CRYPT_OFF) {
+            featureflags |= DMU_BACKUP_FEATURE_ENCRYPT;
+        }
+
 	}
 #endif
 
+    DMU_SET_FEATUREFLAGS(drr->drr_u.drr_begin.drr_versioninfo,
+                         featureflags);
 	drr->drr_u.drr_begin.drr_creation_time =
 	    ds->ds_phys->ds_creation_time;
 	drr->drr_u.drr_begin.drr_type = dmu_objset_type(os);
@@ -547,9 +567,6 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 	mutex_enter(&ds->ds_sendstream_lock);
 	list_insert_head(&ds->ds_sendstreams, dsp);
 	mutex_exit(&ds->ds_sendstream_lock);
-
-	dsl_dataset_long_hold(ds, FTAG);
-	dsl_pool_rele(dp, tag);
 
 	if (dump_bytes(dsp, drr, sizeof (dmu_replay_record_t)) != 0) {
 		err = dsp->dsa_err;
@@ -587,9 +604,8 @@ out:
 	kmem_free(drr, sizeof (dmu_replay_record_t));
 	kmem_free(dsp, sizeof (dmu_sendarg_t));
 
-	dsl_dataset_long_rele(ds, FTAG);
 	dsl_dataset_rele(ds, tag);
-
+	dsl_pool_rele(dp, tag);
 	return (err);
 }
 
@@ -634,9 +650,9 @@ dmu_send(const char *tosnap, const char *fromsnap,
 	int err;
 
 	if (strchr(tosnap, '@') == NULL)
-		return (SET_ERROR(EINVAL));
+		return (EINVAL);
 	if (fromsnap != NULL && strchr(fromsnap, '@') == NULL)
-		return (SET_ERROR(EINVAL));
+		return (EINVAL);
 
 	err = dsl_pool_hold(tosnap, FTAG, &dp);
 	if (err != 0)
@@ -670,14 +686,14 @@ dmu_send_estimate(dsl_dataset_t *ds, dsl_dataset_t *fromds, uint64_t *sizep)
 
 	/* tosnap must be a snapshot */
 	if (!dsl_dataset_is_snapshot(ds))
-		return (SET_ERROR(EINVAL));
+		return (EINVAL);
 
 	/*
 	 * fromsnap must be an earlier snapshot from the same fs as tosnap,
 	 * or the origin's fs.
 	 */
 	if (fromds != NULL && !dsl_dataset_is_before(ds, fromds))
-		return (SET_ERROR(EXDEV));
+		return (EXDEV);
 
 	/* Get uncompressed size estimate of changed data. */
 	if (fromds == NULL) {
@@ -722,6 +738,7 @@ typedef struct dmu_recv_begin_arg {
 	const char *drba_origin;
 	dmu_recv_cookie_t *drba_cookie;
 	cred_t *drba_cred;
+    dsl_crypto_ctx_t *drba_dcc;
 	uint64_t drba_snapobj;
 } dmu_recv_begin_arg_t;
 
@@ -795,6 +812,56 @@ recv_begin_check_existing_impl(dmu_recv_begin_arg_t *drba, dsl_dataset_t *ds,
 
 }
 
+
+static boolean_t
+dmu_recv_verify_features(dsl_dataset_t *ds, struct drr_begin *drrb)
+{
+	int featureflags;
+    uint64_t crypt;
+
+	featureflags = DMU_GET_FEATUREFLAGS(drrb->drr_versioninfo);
+
+#if 0
+	/* Verify pool version supports SA if SA_SPILL feature set */
+	return ((featureflags & DMU_BACKUP_FEATURE_SA_SPILL) &&
+	    (spa_version(dsl_dataset_get_spa(ds)) < SPA_VERSION_SA));
+#endif
+
+        /*
+         * Currently all these checks only apply to DMU_OST_ZFS
+         * because they are all to do with the SA spill blocks
+         * and also how that is used by encrypted filesystems.
+         * If ZVOLs ever start using SA spill blocks for anything the
+         * first check at least might need to apply to them too.
+         */
+        if (drrb->drr_type != DMU_OST_ZFS) {
+                return (B_TRUE);
+        }
+        /* Verify pool version supports SA if SA_SPILL feature set */
+        if ((featureflags & DMU_BACKUP_FEATURE_SA_SPILL) &&
+            spa_version(dsl_dataset_get_spa(ds)) < SPA_VERSION_SA) {
+                return (B_FALSE);
+        }
+
+        /*
+         * Verify stream came from an encrypted dataset if encryption is on.
+         */
+        rrw_enter(&ds->ds_dir->dd_pool->dp_config_rwlock, RW_READER, FTAG);
+        VERIFY(0 == dsl_prop_get_ds(ds, zfs_prop_to_name(ZFS_PROP_ENCRYPTION),
+                                    8, 1, &crypt, NULL
+                                    /*, DSL_PROP_GET_EFFECTIVE*/)); //FIXME
+        rrw_exit(&ds->ds_dir->dd_pool->dp_config_rwlock, FTAG);
+        if ((featureflags & DMU_BACKUP_FEATURE_ENCRYPT) &&
+            !spa_feature_is_enabled(dsl_dataset_get_spa(ds),
+                                    &spa_feature_table[SPA_FEATURE_ENCRYPTION])) {
+                return (B_FALSE);
+        } else if (crypt != ZIO_CRYPT_OFF) {
+                return (featureflags & DMU_BACKUP_FEATURE_ENCRYPT);
+        }
+
+        return (B_TRUE);
+}
+
 static int
 dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 {
@@ -814,23 +881,27 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 	    DMU_COMPOUNDSTREAM ||
 	    drrb->drr_type >= DMU_OST_NUMTYPES ||
 	    ((flags & DRR_FLAG_CLONE) && drba->drba_origin == NULL))
-		return (SET_ERROR(EINVAL));
+		return (EINVAL);
 
 	/* Verify pool version supports SA if SA_SPILL feature set */
 	if ((DMU_GET_FEATUREFLAGS(drrb->drr_versioninfo) &
 	    DMU_BACKUP_FEATURE_SA_SPILL) &&
 	    spa_version(dp->dp_spa) < SPA_VERSION_SA) {
-		return (SET_ERROR(ENOTSUP));
+		return (ENOTSUP);
 	}
 
 	error = dsl_dataset_hold(dp, tofs, FTAG, &ds);
 	if (error == 0) {
+        if (!dmu_recv_verify_features(ds, drrb)) {
+            dsl_dataset_rele(ds, FTAG);
+            return (ENOTSUP);
+        }
 		/* target fs already exists; recv into temp clone */
 
 		/* Can't recv a clone into an existing fs */
 		if (flags & DRR_FLAG_CLONE) {
 			dsl_dataset_rele(ds, FTAG);
-			return (SET_ERROR(EINVAL));
+			return (EINVAL);
 		}
 
 		error = recv_begin_check_existing_impl(drba, ds, fromguid);
@@ -844,7 +915,7 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 		 * target fs, so fail the recv.
 		 */
 		if (fromguid != 0 && !(flags & DRR_FLAG_CLONE))
-			return (SET_ERROR(ENOENT));
+			return (ENOENT);
 
 		/* Open the parent of tofs */
 		ASSERT3U(strlen(tofs), <, MAXNAMELEN);
@@ -852,6 +923,11 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 		error = dsl_dataset_hold(dp, buf, FTAG, &ds);
 		if (error != 0)
 			return (error);
+
+        if (!dmu_recv_verify_features(ds, drrb)) {
+            dsl_dataset_rele(ds, FTAG);
+            return (ENOTSUP);
+        }
 
 		if (drba->drba_origin != NULL) {
 			dsl_dataset_t *origin;
@@ -864,12 +940,12 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 			if (!dsl_dataset_is_snapshot(origin)) {
 				dsl_dataset_rele(origin, FTAG);
 				dsl_dataset_rele(ds, FTAG);
-				return (SET_ERROR(EINVAL));
+				return (EINVAL);
 			}
 			if (origin->ds_phys->ds_guid != fromguid) {
 				dsl_dataset_rele(origin, FTAG);
 				dsl_dataset_rele(ds, FTAG);
-				return (SET_ERROR(ENODEV));
+				return (ENODEV);
 			}
 			dsl_dataset_rele(origin, FTAG);
 		}
@@ -897,14 +973,8 @@ dmu_recv_begin_sync(void *arg, dmu_tx_t *tx)
 	error = dsl_dataset_hold(dp, tofs, FTAG, &ds);
 	if (error == 0) {
 		/* create temporary clone */
-		dsl_dataset_t *snap = NULL;
-		if (drba->drba_snapobj != 0) {
-			VERIFY0(dsl_dataset_hold_obj(dp,
-			    drba->drba_snapobj, FTAG, &snap));
-		}
 		dsobj = dsl_dataset_create_sync(ds->ds_dir, recv_clone_name,
-		    snap, crflags, drba->drba_cred, tx);
-		dsl_dataset_rele(snap, FTAG);
+		    ds->ds_prev, drba->drba_dcc, crflags, drba->drba_cred, tx);
 		dsl_dataset_rele(ds, FTAG);
 	} else {
 		dsl_dir_t *dd;
@@ -921,7 +991,7 @@ dmu_recv_begin_sync(void *arg, dmu_tx_t *tx)
 		/* Create new dataset. */
 		dsobj = dsl_dataset_create_sync(dd,
 		    strrchr(tofs, '/') + 1,
-		    origin, crflags, drba->drba_cred, tx);
+                   origin, drba->drba_dcc, crflags, drba->drba_cred, tx);
 		if (origin != NULL)
 			dsl_dataset_rele(origin, FTAG);
 		dsl_dir_rele(dd, FTAG);
@@ -938,13 +1008,18 @@ dmu_recv_begin_sync(void *arg, dmu_tx_t *tx)
 	 */
 	if (BP_IS_HOLE(dsl_dataset_get_blkptr(newds))) {
 		(void) dmu_objset_create_impl(dp->dp_spa,
-		    newds, dsl_dataset_get_blkptr(newds), drrb->drr_type, tx);
+		    newds, dsl_dataset_get_blkptr(newds), drrb->drr_type,
+                                      drba->drba_dcc, tx);
 	}
 
 	drba->drba_cookie->drc_ds = newds;
 
+	spa_history_log_internal(dp->dp_spa, "reply_sync", tx,
+                             "dataset = %lld", dsobj);
 	spa_history_log_internal_ds(newds, "receive", tx, "");
+
 }
+
 
 /*
  * NB: callers *MUST* call dmu_recv_stream() if dmu_recv_begin()
@@ -952,7 +1027,8 @@ dmu_recv_begin_sync(void *arg, dmu_tx_t *tx)
  */
 int
 dmu_recv_begin(char *tofs, char *tosnap, struct drr_begin *drrb,
-    boolean_t force, char *origin, dmu_recv_cookie_t *drc)
+               boolean_t force, char *origin, dmu_recv_cookie_t *drc,
+               struct dsl_crypto_ctx *dcc)
 {
 	dmu_recv_begin_arg_t drba = { 0 };
 	dmu_replay_record_t *drr;
@@ -966,7 +1042,7 @@ dmu_recv_begin(char *tofs, char *tosnap, struct drr_begin *drrb,
 	if (drrb->drr_magic == BSWAP_64(DMU_BACKUP_MAGIC))
 		drc->drc_byteswap = B_TRUE;
 	else if (drrb->drr_magic != DMU_BACKUP_MAGIC)
-		return (SET_ERROR(EINVAL));
+		return (EINVAL);
 
 	drr = kmem_zalloc(sizeof (dmu_replay_record_t), KM_SLEEP);
 	drr->drr_type = DRR_BEGIN;
@@ -992,6 +1068,7 @@ dmu_recv_begin(char *tofs, char *tosnap, struct drr_begin *drrb,
 	drba.drba_origin = origin;
 	drba.drba_cookie = drc;
 	drba.drba_cred = CRED();
+    drba.drba_dcc = dcc;
 
 	return (dsl_sync_task(tofs, dmu_recv_begin_check, dmu_recv_begin_sync,
 	    &drba, 5));
@@ -1171,6 +1248,7 @@ restore_object(struct restorearg *ra, objset_t *os, struct drr_object *drro)
 	    !DMU_OT_IS_VALID(drro->drr_bonustype) ||
 	    drro->drr_checksumtype >= ZIO_CHECKSUM_FUNCTIONS ||
 	    drro->drr_compress >= ZIO_COMPRESS_FUNCTIONS ||
+        drro->drr_crypt >= ZIO_CRYPT_FUNCTIONS ||
 	    P2PHASE(drro->drr_blksz, SPA_MINBLOCKSIZE) ||
 	    drro->drr_blksz < SPA_MINBLOCKSIZE ||
 	    drro->drr_blksz > SPA_MAXBLOCKSIZE ||
@@ -1625,6 +1703,7 @@ dmu_recv_end_check(void *arg, dmu_tx_t *tx)
 		error = dsl_dataset_hold(dp, drc->drc_tofs, FTAG, &origin_head);
 		if (error != 0)
 			return (error);
+
 		if (drc->drc_force) {
 			/*
 			 * We will destroy any snapshots in tofs (i.e. before

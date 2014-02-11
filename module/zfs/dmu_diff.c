@@ -168,7 +168,7 @@ dmu_diff(const char *tosnap_name, const char *fromsnap_name,
 
 	if (strchr(tosnap_name, '@') == NULL ||
 	    strchr(fromsnap_name, '@') == NULL)
-		return (SET_ERROR(EINVAL));
+		return (EINVAL);
 
 	error = dsl_pool_hold(tosnap_name, FTAG, &dp);
 	if (error != 0)
@@ -191,7 +191,7 @@ dmu_diff(const char *tosnap_name, const char *fromsnap_name,
 		dsl_dataset_rele(fromsnap, FTAG);
 		dsl_dataset_rele(tosnap, FTAG);
 		dsl_pool_rele(dp, FTAG);
-		return (SET_ERROR(EXDEV));
+		return (EXDEV);
 	}
 
 	fromtxg = fromsnap->ds_phys->ds_creation_txg;

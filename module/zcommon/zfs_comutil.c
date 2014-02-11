@@ -204,6 +204,8 @@ const char *zfs_history_event_names[ZFS_NUM_LEGACY_HISTORY_EVENTS] = {
 	"user hold",
 	"user release",
 	"pool split",
+    "encryption key create",
+    "wrapping key change",
 };
 
 #if defined(_KERNEL) && defined(HAVE_SPL)
