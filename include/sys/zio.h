@@ -140,6 +140,7 @@ typedef enum zio_priority {
 	ZIO_PRIORITY_ASYNC_WRITE,	/* spa_sync() */
 	ZIO_PRIORITY_SCRUB,		/* asynchronous scrub/resilver reads */
 	ZIO_PRIORITY_NUM_QUEUEABLE,
+	ZIO_PRIORITY_LOG_WRITE,
 
 	ZIO_PRIORITY_NOW		/* non-queued i/os (e.g. free) */
 } zio_priority_t;
@@ -160,20 +161,6 @@ enum zio_crypt {
 
 #define ZIO_CRYPT_ON_VALUE      ZIO_CRYPT_AES_128_CCM
 #define ZIO_CRYPT_DEFAULT       ZIO_CRYPT_OFF
-
-#define	ZIO_PRIORITY_NOW		(zio_priority_table[0])
-#define	ZIO_PRIORITY_SYNC_READ		(zio_priority_table[1])
-#define	ZIO_PRIORITY_SYNC_WRITE		(zio_priority_table[2])
-#define	ZIO_PRIORITY_LOG_WRITE		(zio_priority_table[3])
-#define	ZIO_PRIORITY_CACHE_FILL		(zio_priority_table[4])
-#define	ZIO_PRIORITY_AGG		(zio_priority_table[5])
-#define	ZIO_PRIORITY_FREE		(zio_priority_table[6])
-#define	ZIO_PRIORITY_ASYNC_WRITE	(zio_priority_table[7])
-#define	ZIO_PRIORITY_ASYNC_READ		(zio_priority_table[8])
-#define	ZIO_PRIORITY_RESILVER		(zio_priority_table[9])
-#define	ZIO_PRIORITY_SCRUB		(zio_priority_table[10])
-#define	ZIO_PRIORITY_DDT_PREFETCH	(zio_priority_table[11])
-#define	ZIO_PRIORITY_TABLE_SIZE		12
 
 #define	ZIO_PIPELINE_CONTINUE		0x100
 #define	ZIO_PIPELINE_STOP		0x101
@@ -503,7 +490,7 @@ extern zio_t *zio_write(zio_t *pio, spa_t *spa, uint64_t txg, blkptr_t *bp,
 
 extern zio_t *zio_rewrite(zio_t *pio, spa_t *spa, uint64_t txg, blkptr_t *bp,
     void *data, uint64_t size, zio_prop_t *zp, zio_done_func_t *done, void *private,
-    int priority, enum zio_flag flags, zbookmark_t *zb);
+    zio_priority_t priority, enum zio_flag flags, zbookmark_t *zb);
 
 extern void zio_write_override(zio_t *zio, blkptr_t *bp, int copies,
     boolean_t nopwrite);
